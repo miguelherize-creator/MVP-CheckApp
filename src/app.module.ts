@@ -26,13 +26,18 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        url: config.getOrThrow<string>('DATABASE_URL'),
-        entities: [User, RefreshToken, PasswordResetToken],
-        synchronize: config.get<string>('NODE_ENV', 'development') !== 'production',
-        logging: config.get<string>('NODE_ENV') === 'development',
-      }),
+      useFactory: (config: ConfigService) => {
+        const isProd = config.get<string>('NODE_ENV', 'development') === 'production';
+        const forceSync = config.get<string>('DB_SYNC', 'false') === 'true';
+        return {
+          type: 'postgres',
+          url: config.getOrThrow<string>('DATABASE_URL'),
+          entities: [User, RefreshToken, PasswordResetToken],
+          // MVP: en producción usa migraciones; si aún no existen, DB_SYNC=true crea esquema (solo transitorio).
+          synchronize: !isProd || forceSync,
+          logging: config.get<string>('NODE_ENV') === 'development',
+        };
+      },
     }),
     UsersModule,
     AuthModule,

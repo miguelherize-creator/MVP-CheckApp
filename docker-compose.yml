@@ -10,6 +10,31 @@ services:
       - '5432:5432'
     volumes:
       - checkapp_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U checkapp -d checkapp']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://checkapp:checkapp@postgres:5432/checkapp
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-change-me-min-32-chars!!}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      REFRESH_EXPIRES_DAYS: ${REFRESH_EXPIRES_DAYS:-7}
+      PASSWORD_RESET_EXPIRES_MINUTES: ${PASSWORD_RESET_EXPIRES_MINUTES:-60}
+      PASSWORD_RESET_URL_TEMPLATE: ${PASSWORD_RESET_URL_TEMPLATE:-http://localhost:3000/reset?token={{token}}}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   checkapp_pg_data:
