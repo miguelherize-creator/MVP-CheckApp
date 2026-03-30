@@ -11,10 +11,12 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
+import { CashflowModule } from '../cashflow/cashflow.module';
 
 @Module({
   imports: [
     forwardRef(() => UsersModule),
+    CashflowModule,
     MailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     TypeOrmModule.forFeature([RefreshToken, PasswordResetToken]),

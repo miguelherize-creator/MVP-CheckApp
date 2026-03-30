@@ -19,11 +19,13 @@ import {
   hashOpaqueToken,
 } from '../common/utils/crypto.utils';
 import { User } from '../users/entities/user.entity';
+import { CashflowSeedService } from '../cashflow/services/cashflow-seed.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
+    private readonly cashflowSeed: CashflowSeedService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly mailService: MailService,
@@ -46,6 +48,8 @@ export class AuthService {
       name: dto.name,
       acceptedTermsAt,
     });
+
+    await this.cashflowSeed.ensureFundingSourcesForUser(user.id);
 
     const tokens = await this.issueTokens(user);
     return {

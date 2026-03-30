@@ -1,0 +1,118 @@
+{
+    "Empleador": [
+      "Sueldo",
+      "Bono",
+      "Honorarios",
+      "Aguinaldos"
+    ],
+    "Hogar": [
+      "Alimentación - Abastos",
+      "Alimentación - Agua Potable",
+      "Alimentación - Feria - Huevos",
+      "Alimentación - Feria - Pescado",
+      "Alimentación - Supermercado",
+      "Bienes muebles",
+      "Mantención",
+      "Otros",
+      "Productos de higiene",
+      "Servicios - Aguas Andinas",
+      "Servicios - Arriendo",
+      "Servicios - GGCC",
+      "Servicios - Internet",
+      "Servicios - Luz",
+      "Servicios - Metrogas",
+      "Servicios - Netflix",
+      "Servipag"
+    ],
+    "Familia": [
+      "Devolución de Isapre",
+      "Devolución de Seguro de Salud",
+      "Esposa",
+      "Estudio",
+      "Hermana",
+      "Hijos",
+      "Mensualidad Hija",
+      "Padres",
+      "Salud"
+    ],
+    "Entretenimiento": [
+      "Alcohol",
+      "Cine",
+      "Comic",
+      "Conciertos & Eventos",
+      "Cumpleaños",
+      "Deporte",
+      "Helados",
+      "Matrimonio",
+      "Música",
+      "Otros",
+      "Pareja",
+      "Parques",
+      "Restaurantes",
+      "Vacaciones"
+    ],
+    "Inversiones": [
+      "Compra dólares",
+      "Fit Combat",
+      "Hunting",
+      "Inmobiliarios",
+      "Otros"
+    ],
+    "Gastos_Personales": [
+      "Alimentación",
+      "Apps",
+      "Asesorías",
+      "Bancos",
+      "Café desayuno",
+      "Comida calle | Delivery",
+      "Efectivo",
+      "Google Play",
+      "Hogar",
+      "Imposiciones",
+      "Impuesto",
+      "Meriendas",
+      "Otros",
+      "Pareja",
+      "Préstamos",
+      "Regalo",
+      "Regalos",
+      "Salud",
+      "Seguros",
+      "Teléfono",
+      "Vestimenta"
+    ],
+    "Creditos": [
+      "Automotriz",
+      "Crédito de Consumo",
+      "Educación",
+      "Hipotecario",
+      "Intereses",
+      "Línea de Crédito",
+      "Impuesto",
+      "Nota de crédito",
+      "Pago TC",
+      "Préstamos",
+      "Tarjeta de Crédito"
+    ],
+    "Efectivo": [
+      "Otros"
+    ],
+    "Otros": [
+      "Fondos Colegio",
+      "No conciliado",
+      "No reconocido",
+      "Otros",
+      "Tarjeta pago"
+    ],
+    "Movilizacion": [
+      "BIP",
+      "Bencina",
+      "Estacionamiento",
+      "Permisos",
+      "Reparación de auto",
+      "Revisión técnica",
+      "Seguro auto",
+      "TAG",
+      "Taxi"
+    ]
+  }

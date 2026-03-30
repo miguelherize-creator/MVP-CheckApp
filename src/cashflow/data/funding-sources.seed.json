@@ -1,0 +1,6 @@
+[
+  { "code": "cc", "name": "Cuenta Corriente", "type": "checking" },
+  { "code": "lc", "name": "Línea de Crédito", "type": "credit_line" },
+  { "code": "tc", "name": "Tarjeta de Crédito", "type": "credit_card" },
+  { "code": "inv_01", "name": "Inversiones", "type": "investment" }
+]

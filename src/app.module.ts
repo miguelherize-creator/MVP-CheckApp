@@ -7,6 +7,11 @@ import { AuthModule } from './auth/auth.module';
 import { User } from './users/entities/user.entity';
 import { RefreshToken } from './auth/entities/refresh-token.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
+import { CashflowModule } from './cashflow/cashflow.module';
+import { FundingSource } from './cashflow/entities/funding-source.entity';
+import { Category } from './cashflow/entities/category.entity';
+import { Subcategory } from './cashflow/entities/subcategory.entity';
+import { Transaction } from './cashflow/entities/transaction.entity';
 
 @Module({
   imports: [
@@ -32,7 +37,15 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
         return {
           type: 'postgres',
           url: config.getOrThrow<string>('DATABASE_URL'),
-          entities: [User, RefreshToken, PasswordResetToken],
+          entities: [
+            User,
+            RefreshToken,
+            PasswordResetToken,
+            FundingSource,
+            Category,
+            Subcategory,
+            Transaction,
+          ],
           // MVP: en producción usa migraciones; si aún no existen, DB_SYNC=true crea esquema (solo transitorio).
           synchronize: !isProd || forceSync,
           logging: config.get<string>('NODE_ENV') === 'development',
@@ -41,6 +54,7 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
     }),
     UsersModule,
     AuthModule,
+    CashflowModule,
   ],
 })
 export class AppModule {}
