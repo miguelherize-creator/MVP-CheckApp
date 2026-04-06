@@ -37,11 +37,16 @@ async function bootstrap() {
       'access-token',
     )
     .build();
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  const port = process.env.PORT ?? 3000;
-  await app.listen(port);
-  console.log(`HTTP ${port} — Swagger: http://localhost:${port}/api`);
+const port = process.env.PORT ?? 3000;
+const host = process.env.HOST ?? 'localhost';
+
+await app.listen(Number(port), '0.0.0.0');
+
+console.log(`HTTP ${port} — Swagger: http://${host}:${port}/api`);
 }
+
 bootstrap();
