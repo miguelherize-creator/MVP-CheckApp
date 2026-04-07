@@ -24,7 +24,7 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const config = new DocumentBuilder()
-    .setTitle('CheckApp API')
+    .setTitle('Walvy API')
     .setDescription('MVP — autenticación y usuario')
     .setVersion('0.1.0')
     .addBearerAuth(

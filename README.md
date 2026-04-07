@@ -1,4 +1,4 @@
-# CheckApp — API (MVP auth)
+# Walvy — API (MVP auth)
 
 API **REST** en **NestJS** + **PostgreSQL** para registro, login, refresh token, recuperación y cambio de contraseña. Documentación interactiva en **`/api`** (Swagger).
 
@@ -35,13 +35,13 @@ API **REST** en **NestJS** + **PostgreSQL** para registro, login, refresh token,
 Construir y ejecutar solo la imagen (necesitas una `DATABASE_URL` alcanzable):
 
 ```bash
-docker build -t checkapp-api .
+docker build -t walvy-api .
 docker run --rm -p 3000:3000 \
   -e NODE_ENV=production \
   -e DATABASE_URL="postgresql://..." \
   -e JWT_SECRET="..." \
   -e DB_SYNC=true \
-  checkapp-api
+  walvy-api
 ```
 
 ## Deploy en Render (Docker)
