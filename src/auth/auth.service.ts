@@ -43,6 +43,7 @@ export class AuthService {
       dto.acceptTerms === true ? new Date() : null;
 
     const user = await this.usersService.create({
+      username: dto.username,
       email: dto.email,
       password: dto.password,
       name: dto.name,
@@ -59,8 +60,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersService.findByEmailWithPassword(dto.email);
-    if (!user) {
+  const user = await this.usersService.findByUsernameWithPassword(dto.username);    if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
     const ok = await this.usersService.validatePassword(
@@ -190,7 +190,7 @@ export class AuthService {
   private async issueTokens(user: User) {
     const payload: JwtPayload = {
       sub: user.id,
-      email: user.email,
+      username: user.username,
     };
     const accessToken = await this.jwtService.signAsync(payload);
     const refreshPlain = generateOpaqueToken();
