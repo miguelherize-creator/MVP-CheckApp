@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Imagen de producción para NestJS (CheckApp API). Render y otros PaaS suelen inyectar PORT y DATABASE_URL.
+# Imagen de producción para NestJS (Walvy API). Render y otros PaaS suelen inyectar PORT y DATABASE_URL.
 
 FROM node:20-bookworm-slim AS builder
 

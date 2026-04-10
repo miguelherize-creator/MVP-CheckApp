@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 
-describe('CheckApp API (e2e)', () => {
+describe('Walvy API (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {

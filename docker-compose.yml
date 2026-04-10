@@ -3,15 +3,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: checkapp
-      POSTGRES_PASSWORD: checkapp
-      POSTGRES_DB: checkapp
+      POSTGRES_USER: walvy
+      POSTGRES_PASSWORD: walvy
+      POSTGRES_DB: walvy
     ports:
       - '5432:5432'
     volumes:
-      - checkapp_pg_data:/var/lib/postgresql/data
+      - walvy_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U checkapp -d checkapp']
+      test: ['CMD-SHELL', 'pg_isready -U walvy -d walvy']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -25,7 +25,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://checkapp:checkapp@postgres:5432/checkapp
+      DATABASE_URL: postgresql://walvy:walvy@postgres:5432/walvy
       JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-change-me-min-32-chars!!}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       REFRESH_EXPIRES_DAYS: ${REFRESH_EXPIRES_DAYS:-7}
@@ -39,4 +39,4 @@ services:
         condition: service_healthy
 
 volumes:
-  checkapp_pg_data:
+  walvy_pg_data:
