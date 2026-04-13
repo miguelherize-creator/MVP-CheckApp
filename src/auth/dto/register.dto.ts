@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
-  IsEmail,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -11,24 +10,12 @@ import {
 } from 'class-validator';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'Ana Pérez' })
-  @IsString()
-  @IsNotEmpty({ message: 'El nombre es obligatorio' })
-  name!: string;
-
-  @ApiProperty({ example: 'ana.perez' })
-  @IsString()
-  @MinLength(3, { message: 'El nombre de usuario debe tener al menos 3 caracteres' })
-  @MaxLength(50, { message: 'El nombre de usuario no puede superar 50 caracteres' })
-  @Matches(/^[a-zA-Z0-9._-]+$/, {
-    message:
-      'El nombre de usuario solo puede contener letras, números, punto, guion y guion bajo',
-  })
-  username!: string;
-
   @ApiProperty({ example: 'ana@example.com' })
-  @IsEmail({}, { message: 'Correo no válido' })
-  email!: string;
+  @IsString()
+  @IsNotEmpty({ message: 'El username es obligatorio' })
+  @MinLength(3, { message: 'El username debe tener al menos 3 caracteres' })
+  @MaxLength(100, { message: 'El username no puede superar 100 caracteres' })
+  username!: string;
 
   @ApiProperty({
     description: 'Mínimo 8 caracteres, al menos una mayúscula, una minúscula y un número',
@@ -41,9 +28,7 @@ export class RegisterDto {
   })
   password!: string;
 
-  @ApiPropertyOptional({
-    description: 'Si el negocio exige aceptación explícita de términos',
-  })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
   acceptTerms?: boolean;

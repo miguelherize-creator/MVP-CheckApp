@@ -39,18 +39,24 @@ export class AuthService {
     if (dto.acceptTerms === false) {
       throw new BadRequestException('Debes aceptar los términos para registrarte');
     }
+
     const acceptedTermsAt =
       dto.acceptTerms === true ? new Date() : null;
 
     const user = await this.usersService.create({
       username: dto.username,
-      email: dto.email,
       password: dto.password,
-      name: dto.name,
       acceptedTermsAt,
     });
 
     await this.cashflowSeed.ensureFundingSourcesForUser(user.id);
+
+    const isEmailUsername = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.username);
+
+    if (isEmailUsername && user.email) {
+      // Aquí luego conectas validación de correo si quieres
+      // await this.mailService.sendEmailVerificationEmail(user.email, token);
+    }
 
     const tokens = await this.issueTokens(user);
     return {
@@ -109,21 +115,29 @@ export class AuthService {
     return { ok: true };
   }
 
-  async forgotPassword(email: string) {
-    const user = await this.usersService.findByEmail(email);
-    // Respuesta genérica siempre
+  async forgotPassword(emailOrUsername: string) {
+    let user = await this.usersService.findByEmail(emailOrUsername);
+
+    if (!user) {
+      user = await this.usersService.findByUsername(emailOrUsername);
+    }
+
     const generic = {
       message:
         'Si el correo existe en nuestro sistema, recibirás instrucciones para restablecer tu contraseña.',
     };
-    if (!user) {
+
+    if (!user || !user.email) {
       return generic;
     }
+
     await this.resetRepo.delete({ userId: user.id });
+
     const plain = generateOpaqueToken();
     const tokenHash = hashOpaqueToken(plain);
     const minutes = this.config.get<number>('PASSWORD_RESET_EXPIRES_MINUTES', 60);
     const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
+
     await this.resetRepo.save(
       this.resetRepo.create({
         userId: user.id,
@@ -132,6 +146,7 @@ export class AuthService {
         usedAt: null,
       }),
     );
+
     await this.mailService.sendPasswordResetEmail(user.email, plain);
     return generic;
   }

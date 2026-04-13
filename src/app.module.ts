@@ -34,8 +34,8 @@ import { Transaction } from './cashflow/entities/transaction.entity';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const isProd = config.get<string>('NODE_ENV', 'development') === 'production';
-        const forceSync = config.get<string>('DB_SYNC', 'false') === 'true';
+      const dbSync = config.get<string>('DB_SYNC', 'false') === 'true';
+
         return {
           type: 'postgres',
           url: config.getOrThrow<string>('DATABASE_URL'),
@@ -49,7 +49,7 @@ import { Transaction } from './cashflow/entities/transaction.entity';
             Transaction,
           ],
           // MVP: en producción usa migraciones; si aún no existen, DB_SYNC=true crea esquema (solo transitorio).
-          synchronize: !isProd || forceSync,
+          synchronize: dbSync,
           logging: config.get<string>('NODE_ENV') === 'development',
         };
       },

@@ -20,30 +20,29 @@ export class UsersService {
 
   async create(data: {
     username: string;
-    email: string;
     password: string;
-    name: string;
     acceptedTermsAt?: Date | null;
   }): Promise<User> {
     const normalizedUsername = data.username.trim().toLowerCase();
-    const normalizedEmail = data.email.trim().toLowerCase();
 
     const existingUsername = await this.usersRepo.findOne({
       where: { username: normalizedUsername },
     });
 
     if (existingUsername) {
-      throw new ConflictException('Ya existe un usuario con este nombre de usuario');
+      throw new ConflictException('Ya existe un usuario con este username');
     }
 
     const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+    const isEmailUsername = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedUsername);
 
     const user = this.usersRepo.create({
       username: normalizedUsername,
-      email: normalizedEmail,
+      email: isEmailUsername ? normalizedUsername : null,
+      name: null,
       passwordHash,
-      name: data.name,
       acceptedTermsAt: data.acceptedTermsAt ?? null,
+      emailVerifiedAt: null,
     });
 
     return this.usersRepo.save(user);
@@ -105,8 +104,9 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    if (dto.email && dto.email.toLowerCase() !== user.email) {
-      user.email = dto.email.toLowerCase();
+    if (dto.email !== undefined) {
+      user.email = dto.email ? dto.email.toLowerCase() : null;
+      user.emailVerifiedAt = null;
     }
 
     if (dto.name !== undefined) {
@@ -124,6 +124,8 @@ export class UsersService {
       name: user.name,
       createdAt: user.createdAt,
       emailVerifiedAt: user.emailVerifiedAt,
+      needsEmailOnboarding: !user.email,
+      emailVerified: !!user.emailVerifiedAt,
     };
   }
 }

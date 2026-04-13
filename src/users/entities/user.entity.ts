@@ -11,17 +11,17 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ unique: true, length: 50 })
+  @Column({ unique: true, length: 100, type: 'varchar' })
   username!: string;
 
-  @Column()
-  email!: string;
+  @Column({ type: 'varchar', nullable: true })
+  email!: string | null;
 
-  @Column({ name: 'password_hash', select: false })
+  @Column({ name: 'password_hash', select: false, type: 'varchar' })
   passwordHash!: string;
 
-  @Column()
-  name!: string;
+  @Column({ type: 'varchar', nullable: true })
+  name!: string | null;
 
   @Column({ name: 'accepted_terms_at', type: 'timestamptz', nullable: true })
   acceptedTermsAt!: Date | null;
