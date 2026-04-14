@@ -8,6 +8,23 @@ export class MailService {
   constructor(private readonly config: ConfigService) {}
 
   /**
+   * Envía (o en desarrollo: registra en log) el código de verificación de correo.
+   * El código es de 6 dígitos numéricos, válido por 15 minutos.
+   */
+  async sendEmailVerificationCode(to: string, code: string): Promise<void> {
+    const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
+    if (nodeEnv === 'development') {
+      this.logger.log(`[DEV] Código de verificación para ${to}: ${code}`);
+      return;
+    }
+
+    // Producción: integrar SMTP/SendGrid aquí usando variables SMTP_*
+    this.logger.warn(
+      `Mail adapter no configurado para producción; código para ${to}: ${code}`,
+    );
+  }
+
+  /**
    * Envía (o en desarrollo: registra) el enlace de recuperación de contraseña.
    * `PASSWORD_RESET_URL_TEMPLATE` debe incluir `{{token}}` donde va el token en claro.
    */

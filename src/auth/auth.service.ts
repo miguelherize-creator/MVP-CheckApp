@@ -1,7 +1,8 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   UnauthorizedException,
-  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -11,6 +12,9 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { EmailVerificationToken } from './entities/email-verification-token.entity';
+import { BiometricPreferences } from './entities/biometric-preferences.entity';
+import { OnboardingState } from './entities/onboarding-state.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -33,6 +37,12 @@ export class AuthService {
     private readonly refreshRepo: Repository<RefreshToken>,
     @InjectRepository(PasswordResetToken)
     private readonly resetRepo: Repository<PasswordResetToken>,
+    @InjectRepository(EmailVerificationToken)
+    private readonly emailVerifRepo: Repository<EmailVerificationToken>,
+    @InjectRepository(BiometricPreferences)
+    private readonly biometricRepo: Repository<BiometricPreferences>,
+    @InjectRepository(OnboardingState)
+    private readonly onboardingRepo: Repository<OnboardingState>,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -40,33 +50,58 @@ export class AuthService {
       throw new BadRequestException('Debes aceptar los términos para registrarte');
     }
 
-    const acceptedTermsAt =
-      dto.acceptTerms === true ? new Date() : null;
-
     const user = await this.usersService.create({
       username: dto.username,
       password: dto.password,
-      acceptedTermsAt,
+      acceptedTermsAt: dto.acceptTerms === true ? new Date() : null,
     });
 
+    // Seed de fuentes de fondos (cashflow M4/M6)
     await this.cashflowSeed.ensureFundingSourcesForUser(user.id);
 
-    const isEmailUsername = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.username);
+    // Determinar el paso inicial del onboarding según el tipo de identificador
+    const isEmailFlow = user.identifierType === 'email';
+    const initialStep = isEmailFlow ? 'email_verification' : 'email_collection';
 
-    if (isEmailUsername && user.email) {
-      // Aquí luego conectas validación de correo si quieres
-      // await this.mailService.sendEmailVerificationEmail(user.email, token);
+    // Crear estado de onboarding
+    await this.onboardingRepo.save(
+      this.onboardingRepo.create({
+        userId: user.id,
+        currentStep: initialStep,
+        financialProfileCompleted: false,
+        goalsSet: false,
+        importAttempted: false,
+        biometricPrompted: false,
+        completedAt: null,
+      }),
+    );
+
+    // Crear preferencia biométrica inicial (desactivada)
+    await this.biometricRepo.save(
+      this.biometricRepo.create({
+        userId: user.id,
+        enabled: false,
+        method: null,
+        deviceId: null,
+      }),
+    );
+
+    // Flow A: email → enviar código de verificación automáticamente
+    if (isEmailFlow && user.email) {
+      await this.requestEmailVerification(user.id, user.email);
     }
 
     const tokens = await this.issueTokens(user);
     return {
       user: this.usersService.toPublic(user),
       ...tokens,
+      nextStep: initialStep,
     };
   }
 
   async login(dto: LoginDto) {
-  const user = await this.usersService.findByUsernameWithPassword(dto.username);    if (!user) {
+    const user = await this.usersService.findByUsernameWithPassword(dto.username);
+    if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
     const ok = await this.usersService.validatePassword(
@@ -190,6 +225,94 @@ export class AuthService {
     await this.usersService.updatePassword(userId, newPassword);
     await this.revokeAllRefreshForUser(userId);
     return { message: 'Contraseña actualizada correctamente' };
+  }
+
+  /**
+   * Genera un código de 6 dígitos, lo almacena (hash SHA-256) y lo envía al correo.
+   * Invalida cualquier token de verificación previo del mismo usuario.
+   * Flujo A: usuario se registró con email → llama aquí automáticamente post-registro.
+   * Flujo B: usuario se registró con RUT/username → llama aquí desde la pantalla EmailVerification.
+   */
+  async requestEmailVerification(userId: string, email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Verificar que el correo no esté en uso por otro usuario
+    const existing = await this.usersService.findByEmail(normalizedEmail);
+    if (existing && existing.id !== userId) {
+      throw new ConflictException('Este correo ya está registrado por otra cuenta');
+    }
+
+    // Invalidar tokens previos del mismo usuario
+    await this.emailVerifRepo
+      .createQueryBuilder()
+      .update(EmailVerificationToken)
+      .set({ usedAt: new Date() })
+      .where('user_id = :userId', { userId })
+      .andWhere('used_at IS NULL')
+      .execute();
+
+    // Generar código de 6 dígitos y guardarlo como hash
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const tokenHash = hashOpaqueToken(code);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+
+    await this.emailVerifRepo.save(
+      this.emailVerifRepo.create({
+        userId,
+        email: normalizedEmail,
+        tokenHash,
+        expiresAt,
+        usedAt: null,
+      }),
+    );
+
+    await this.mailService.sendEmailVerificationCode(normalizedEmail, code);
+
+    return { message: `Código de verificación enviado a ${normalizedEmail}` };
+  }
+
+  /**
+   * Valida el código de 6 dígitos y actualiza el correo verificado del usuario.
+   * Marca el token como usado para evitar reutilización.
+   */
+  async confirmEmailVerification(userId: string, email: string, code: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const tokenHash = hashOpaqueToken(code);
+
+    const row = await this.emailVerifRepo.findOne({
+      where: { tokenHash, userId },
+    });
+
+    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Código inválido o expirado');
+    }
+
+    if (row.email !== normalizedEmail) {
+      throw new BadRequestException('El correo no coincide con el código enviado');
+    }
+
+    // Marcar token como usado
+    row.usedAt = new Date();
+    await this.emailVerifRepo.save(row);
+
+    // Actualizar email y email_verified_at del usuario
+    const updatedUser = await this.usersService.setEmailVerified(userId, normalizedEmail);
+
+    // Avanzar el onboarding al siguiente paso
+    await this.onboardingRepo
+      .createQueryBuilder()
+      .update(OnboardingState)
+      .set({ currentStep: 'profile' })
+      .where('user_id = :userId', { userId })
+      .andWhere('current_step IN (:...steps)', {
+        steps: ['email_verification', 'email_collection'],
+      })
+      .execute();
+
+    return {
+      message: 'Correo verificado correctamente',
+      user: this.usersService.toPublic(updatedUser),
+    };
   }
 
   private async revokeAllRefreshForUser(userId: string): Promise<void> {

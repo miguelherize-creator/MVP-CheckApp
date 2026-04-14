@@ -1,0 +1,1136 @@
+// =============================================================================
+// Walvy MVP — Esquema DBML completo
+// Generado: 2026-04-13 | Actualizado: 2026-04-14 | Basado en análisis de todos los módulos (M1–M9)
+// =============================================================================
+// Grupos de tablas:
+//   G1  Core Identity & Auth             Módulo 1  (+email_verification_tokens)
+//   G2  Onboarding                       Módulos 1, 2
+//   G3  Perfil Financiero & Metas        Módulo 2
+//   G4  Alertas & Notificaciones         Módulos 2, 7
+//   G5  Taxonomía (Categorías & Fuentes) Módulos 4, 6
+//   G6  Transacciones                    Módulos 4, 6, 7
+//   G7  Presupuesto                      Módulo 6
+//   G8  Motor de Deudas — Bola de Nieve  Módulo 4
+//   G9  Pipeline de Importación          Módulo 4
+//   G10 Pagos & Cuentas por Pagar        Módulo 7
+//   G11 Gamificación                     Módulos 3, 9
+//   G12 Salud Financiera & Recomend.     Módulos 3, 8
+//   G13 IA & Soporte                     Módulo 8
+//   G14 Administración                   Módulo 9
+//   R   Roadmap / Post-MVP               (marcadas explícitamente)
+// =============================================================================
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+Enum movement_type {
+  income   [note: 'Ingreso de dinero']
+  expense  [note: 'Egreso / gasto']
+  transfer [note: 'Transferencia entre fuentes propias']
+}
+
+Enum flow_type {
+  fixed    [note: 'Fijo: arriendo, sueldo, suscripción']
+  variable [note: 'Variable: supermercado, transporte ocasional']
+}
+
+Enum funding_source_kind {
+  checking    [note: 'Cuenta corriente / vista']
+  credit_line [note: 'Línea de crédito']
+  credit_card [note: 'Tarjeta de crédito']
+  investment  [note: 'Inversión / fondo']
+  cash        [note: 'Efectivo']
+  other
+}
+
+Enum debt_type {
+  consumer    [note: 'Crédito de consumo']
+  mortgage    [note: 'Hipotecario']
+  credit_card [note: 'Tarjeta de crédito']
+  line        [note: 'Línea de crédito']
+  other
+}
+
+Enum debt_record_status {
+  active [note: 'Deuda vigente']
+  paid   [note: 'Deuda saldada — libera capacidad de ahorro']
+  closed [note: 'Cerrada manualmente por el usuario']
+}
+
+Enum bill_payable_status {
+  pending [note: 'Por pagar']
+  paid    [note: 'Marcada como pagada']
+  overdue [note: 'Vencida sin pagar']
+}
+
+Enum traffic_light {
+  green  [note: 'Estado financiero saludable']
+  yellow [note: 'Atención — algún indicador fuera de rango']
+  red    [note: 'Riesgo — desvío crítico o vencimiento inminente']
+}
+
+Enum suggestion_source {
+  movement_pattern [note: 'Patrón detectado en transacciones existentes']
+  import           [note: 'Detectado al procesar una cartola importada']
+}
+
+Enum recurring_suggestion_status {
+  pending_user_confirm [note: 'Esperando decisión del usuario']
+  accepted             [note: 'Usuario confirmó → creada en bills_payable']
+  dismissed            [note: 'Usuario descartó la sugerencia']
+}
+
+Enum import_status {
+  pending    [note: 'Archivo recibido, en cola de procesamiento']
+  processing [note: 'Parsing en curso']
+  parsed     [note: 'Procesado — filas listas para revisión del usuario']
+  failed     [note: 'Error durante el procesamiento']
+  cancelled  [note: 'Cancelado por el usuario antes de finalizar']
+}
+
+Enum import_line_review_status {
+  pending  [note: 'Sin revisar aún']
+  accepted [note: 'Aceptada como transacción']
+  rejected [note: 'Descartada por el usuario']
+  edited   [note: 'Modificada manualmente antes de aceptar']
+}
+
+Enum classification_target {
+  debt_plan     [note: 'Módulo 4 — incorporar al plan Bola de Nieve']
+  bills_payable [note: 'Módulo 7 — agregar al panel de cuentas por pagar']
+}
+
+Enum classification_decision {
+  accepted  [note: 'Usuario confirmó la clasificación sugerida']
+  ignored   [note: 'Usuario ignoró la sugerencia']
+  corrected [note: 'Usuario modificó la clasificación']
+}
+
+Enum goal_type {
+  reduce_debt              [note: 'Bajar deuda total']
+  save_amount              [note: 'Ahorrar un monto específico']
+  improve_savings_capacity [note: 'Potenciar capacidad de ahorro mensual']
+  avoid_late_payments      [note: 'Mantener pagos al día']
+  meet_budget              [note: 'Cumplir el presupuesto mensual']
+  other
+}
+
+Enum alert_channel {
+  in_app [note: 'Popup o notificación dentro de la app']
+  push   [note: 'Push notification al dispositivo móvil']
+  email  [note: 'Correo electrónico']
+}
+
+Enum ai_message_role {
+  user      [note: 'Mensaje enviado por el usuario']
+  assistant [note: 'Respuesta del asistente']
+  system    [note: 'Instrucción de sistema — no visible al usuario']
+}
+
+Enum recommendation_context {
+  home     [note: 'Dashboard principal (M3)']
+  budget   [note: 'Pantalla de presupuesto (M6)']
+  debt     [note: 'Motor de deudas (M4)']
+  payments [note: 'Panel de pagos (M7)']
+  profile  [note: 'Perfil y configuración (M2)']
+}
+
+Enum admin_role {
+  super_admin [note: 'Acceso completo al backoffice']
+  operator    [note: 'Lectura + configuración acotada']
+}
+
+Enum identifier_type {
+  email    [note: 'Registro vía correo electrónico']
+  rut      [note: 'Registro vía RUT chileno (normalizado: sin puntos, con guión, minúsculas)']
+  username [note: 'Registro vía nombre de usuario alfanumérico']
+}
+
+// ─────────────────────────────────────────────
+// G1 — Core Identity & Auth   [Módulo 1]
+// ─────────────────────────────────────────────
+
+Table users {
+  id                uuid            [pk]
+  username          text            [not null, unique, note: 'Identificador único de login. Email normalizado | RUT sin puntos lowercase | username. Nunca cambia.']
+  identifier_type   identifier_type [not null, note: '"email" | "rut" | "username" — determina cómo se normalizó username']
+  email             text            [unique, note: 'null si se registró con RUT o username; se puede añadir vía EmailVerification screen']
+  password_hash     text            [not null, note: 'bcrypt — regla: ≥8 chars, upper+lower+number+special']
+  name              text            [note: 'null al registrarse — se recoge en onboarding (M2)']
+  accepted_terms_at timestamptz     [note: 'null = no aceptó aún']
+  email_verified_at timestamptz     [note: 'null = email no verificado']
+  created_at        timestamptz     [not null]
+  updated_at        timestamptz     [not null]
+
+  Note: '''
+  [M1] Tabla central del sistema.
+  username: campo único de login. Al registrarse con email → username=email.toLowerCase().
+    Con RUT → username=rut sin puntos, lowercase (ej: "12345678-9").
+    Con nickname → username=nickname.toLowerCase().
+  email: null hasta que el usuario lo registre/verifique. Requerido para reset de contraseña.
+  name: null al registrarse; se completa en onboarding (M2 — financial_profile step).
+  Sin columna role — admin está en admin_users separado.
+  Sin login social en MVP — user_identities es roadmap.
+  Índices: username (unique), email (unique), created_at (reportes M9).
+  '''
+}
+
+Table refresh_tokens {
+  id         uuid        [pk]
+  user_id    uuid        [not null]
+  token_hash text        [not null, unique, note: 'SHA-256 del token opaco enviado al cliente']
+  expires_at timestamptz [not null]
+  revoked_at timestamptz [note: 'null = vigente; se rota en cada uso']
+  created_at timestamptz [not null]
+
+  Note: '[M1] JWT refresh con rotación. Índices: user_id, expires_at, token_hash (unique).'
+}
+
+Table password_reset_tokens {
+  id         uuid        [pk]
+  user_id    uuid        [not null]
+  token_hash text        [not null, unique, note: 'Hash del enlace enviado por email']
+  expires_at timestamptz [not null]
+  used_at    timestamptz [note: 'null = no usado; marcado al usar para evitar reutilización']
+  created_at timestamptz [not null]
+
+  Note: '[M1] Recuperación de contraseña vía email. Índices: user_id, token_hash.'
+}
+
+Table email_verification_tokens {
+  id         uuid        [pk]
+  user_id    uuid        [not null]
+  email      text        [not null, note: 'Correo a verificar — puede ser distinto del que ya tiene el usuario']
+  token_hash text        [not null, unique, note: 'SHA-256 del código de 6 dígitos enviado al correo']
+  expires_at timestamptz [not null, note: 'TTL 15 minutos desde created_at']
+  used_at    timestamptz [note: 'null = código vigente; marcado al verificar exitosamente']
+  created_at timestamptz [not null]
+
+  Note: '''
+  [M1] Verificación de correo electrónico post-registro.
+  Flujo A: usuario se registró con email → se crea token y se envía código al mismo email.
+  Flujo B: usuario se registró con RUT o username → pantalla EmailVerification pide un correo,
+           se crea token y se envía código a ese correo.
+  Al verificar: users.email = token.email, users.email_verified_at = NOW().
+  Se puede reenviar: invalida tokens previos del mismo user_id (used_at=NOW()) y crea uno nuevo.
+  Índices: user_id, token_hash (unique).
+  '''
+}
+
+Table biometric_preferences {
+  user_id    uuid        [pk, note: 'Relación 1:1 con users']
+  enabled    boolean     [not null, note: 'false = biometría desactivada']
+  method     text        [note: '"face_id" | "fingerprint" | "device_pin"']
+  device_id  text        [note: 'Identificador del dispositivo (multi-device futuro)']
+  updated_at timestamptz [not null]
+
+  Note: '''
+  [M1] Preferencia de autenticación biométrica (Face ID / huella).
+  Opcional — siempre existe fallback a contraseña.
+  No reemplaza el login base; se activa post primer login exitoso.
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G2 — Onboarding   [Módulos 1, 2]
+// ─────────────────────────────────────────────
+
+Table onboarding_state {
+  user_id                     uuid        [pk]
+  current_step                text        [note: '"welcome" | "import" | "financial_profile" | "goals" | "done"']
+  financial_profile_completed boolean     [not null, note: 'true cuando user_financial_profile tiene datos']
+  goals_set                   boolean     [not null, note: 'true cuando hay al menos 1 meta activa']
+  import_attempted            boolean     [not null, note: 'true si intentó subir cartola (exitoso o no)']
+  biometric_prompted          boolean     [not null, note: 'true si ya se le ofreció configurar biometría']
+  completed_at                timestamptz [note: 'null = onboarding no finalizado']
+  updated_at                  timestamptz [not null]
+
+  Note: '''
+  [M1, M2] Estado del onboarding — permite retomar donde quedó.
+  import_attempted no implica éxito; ver statement_imports para el resultado.
+  completed_at se establece al llegar a current_step = "done".
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G3 — Perfil Financiero & Metas   [Módulo 2]
+// ─────────────────────────────────────────────
+
+Table user_financial_profile {
+  user_id                    uuid        [pk]
+  monthly_income_estimate    numeric     [note: 'Renta mensual declarada por el usuario']
+  stable_expenses_note       text        [note: 'Descripción libre de gastos fijos estables']
+  estimated_payment_capacity numeric     [note: 'Capacidad estimada = ingreso − gastos fijos. Alimenta M4 y M3.']
+  currency                   text        [not null, note: 'CLP por defecto']
+  updated_at                 timestamptz [not null]
+
+  Note: '''
+  [M2] Perfil financiero básico. No es scoring bancario.
+  estimated_payment_capacity: alimenta extra_monthly_payment de debt_snowball_plan (M4)
+  y los indicadores del semáforo (M3).
+  '''
+}
+
+Table user_goals {
+  id             uuid      [pk]
+  user_id        uuid      [not null]
+  goal_type      goal_type [not null]
+  target_value   numeric   [note: 'Monto objetivo (solo para reduce_debt y save_amount)']
+  declared_at    timestamptz [not null]
+  progress_cache jsonb     [note: 'Snapshot de progreso recalculado periódicamente']
+  is_active      boolean   [not null, note: 'Puede haber varias metas activas']
+  created_at     timestamptz [not null]
+  updated_at     timestamptz [not null]
+
+  Note: '''
+  [M2] Metas globales del usuario — complementan budget_lines, no las reemplazan.
+  progress_cache calculado desde: deuda restante, cumplimiento presupuesto, pagos al día, etc.
+  Puede haber múltiples metas activas; producto recomienda iniciar con 1–2.
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G4 — Alertas & Notificaciones   [Módulos 2, 7]
+// ─────────────────────────────────────────────
+
+Table alert_preferences {
+  id           uuid          [pk]
+  user_id      uuid          [not null]
+  alert_type   text          [not null, note: '"budget_threshold"|"payment_due"|"import_reminder"|"traffic_light"|"weekly_summary"']
+  channel      alert_channel [not null]
+  enabled      boolean       [not null, note: 'Defaults activos: true para los tipos base']
+  intensity    text          [note: '"low"|"medium"|"high" — cuántas alertas por umbral/período']
+  cadence_days int           [note: 'Días entre alertas del mismo tipo. null = event-driven']
+  created_at   timestamptz   [not null]
+  updated_at   timestamptz   [not null]
+
+  Note: '''
+  [M2, M7] Preferencias por tipo de alerta y canal. Defaults activos desde el alta:
+    budget_threshold → in_app
+    payment_due      → push + email
+    import_reminder  → push, cadence_days=7
+    traffic_light    → in_app
+    weekly_summary   → email
+  El usuario ajusta channel/enabled/cadence dentro de opciones acotadas.
+  Umbrales de presupuesto (50%, 80%, 100%) viven en app_config, no aquí.
+  Índice: (user_id, alert_type, channel) UNIQUE.
+  '''
+}
+
+Table notification_queue {
+  id               uuid          [pk]
+  user_id          uuid          [not null]
+  channel          alert_channel [not null]
+  payload          jsonb         [not null, note: '{ title, body, deep_link } renderizable por el cliente']
+  scheduled_for    timestamptz   [not null]
+  sent_at          timestamptz   [note: 'null = pendiente; el worker lo completa al enviar']
+  bills_payable_id uuid          [note: 'FK opcional al pago que originó la alerta']
+  created_at       timestamptz   [not null]
+
+  Note: '''
+  [M2, M7] Cola de envío de notificaciones.
+  Worker: SELECT WHERE sent_at IS NULL AND scheduled_for <= now().
+  Índice: (user_id, scheduled_for) WHERE sent_at IS NULL.
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G5 — Taxonomía: Fuentes & Categorías   [Módulos 4, 6]
+// ─────────────────────────────────────────────
+
+Table funding_sources {
+  id         uuid                [pk]
+  user_id    uuid                [not null]
+  code       text                [not null, note: 'Código interno (ej: "bci_cc", "efectivo")']
+  name       text                [not null, note: 'Label visible al usuario']
+  type       funding_source_kind [not null]
+  is_active  boolean             [not null]
+  metadata   jsonb               [not null, note: 'Últimos 4 dígitos, nombre banco, etc. Declarativo — no conecta con bancos']
+  created_at timestamptz         [not null]
+  updated_at timestamptz         [not null]
+
+  Note: '[M4, M6, M7] Fuente de fondos del usuario. Metadato de trazabilidad de movimientos. Declarativo en MVP.'
+}
+
+Table categories {
+  id         uuid        [pk]
+  user_id    uuid        [note: 'null = categoría de sistema (global, is_system=true)']
+  name       text        [not null]
+  slug       text        [note: 'Identificador URL-safe para reglas de negocio']
+  icon       text        [note: 'Nombre de icono para la UI']
+  color      text        [note: 'Color hex para gráficos']
+  sort_order int         [not null]
+  is_system  boolean     [not null, note: 'true = definida por producto, no eliminable por usuario']
+  is_active  boolean     [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Note: '''
+  [M4, M6] Catálogo de categorías de ingresos y gastos.
+  Sistema (is_system=true, user_id=null): Alimentación, Transporte, Salud, Entretenimiento…
+  Usuario: NO puede crear categorías base; solo subcategorías dentro de las existentes.
+  Índices: (user_id, is_active), slug.
+  '''
+}
+
+Table subcategories {
+  id          uuid        [pk]
+  category_id uuid        [not null]
+  user_id     uuid        [note: 'null = subcategoría de sistema']
+  name        text        [not null]
+  slug        text
+  icon        text
+  color       text
+  sort_order  int         [not null]
+  is_system   boolean     [not null]
+  is_active   boolean     [not null]
+  created_at  timestamptz [not null]
+  updated_at  timestamptz [not null]
+
+  Note: '''
+  [M4, M6] Subcategorías dentro de una categoría base.
+  El usuario puede crear subcategorías propias (user_id≠null) dentro de una categoría base existente.
+  La categoría base la define producto; no se crean árboles profundos en MVP.
+  Índices: (category_id, is_active), (user_id, is_active).
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G6 — Transacciones   [Módulos 4, 6, 7]
+// ─────────────────────────────────────────────
+
+Table transactions {
+  id                uuid          [pk]
+  user_id           uuid          [not null]
+  movement_type     movement_type [not null]
+  flow_type         flow_type     [not null]
+  funding_source_id uuid          [note: 'Fuente de donde sale/entra el dinero']
+  category_id       uuid
+  subcategory_id    uuid
+  amount            numeric       [not null, note: 'Siempre positivo; movement_type indica la dirección']
+  occurred_on       date          [not null]
+  description       text          [note: 'Texto libre o importado de cartola']
+  is_ant_expense    boolean       [not null, note: 'Calculado por reglas de ant_expense_rules']
+  external_ref      text          [note: 'Referencia del banco en la cartola']
+  import_id         uuid          [note: 'null = ingreso manual; ≠null = vino de importación']
+  created_at        timestamptz   [not null]
+  updated_at        timestamptz   [not null]
+  deleted_at        timestamptz   [note: 'Soft delete']
+
+  Note: '''
+  [M4, M6, M7] Registro central de movimientos. Fuente de:
+    Balance (M3), gráficos de gasto (M3), cumplimiento presupuesto (M6),
+    categorización bola de nieve (M4), vinculación pagos (M7).
+  Índices: (user_id, occurred_on DESC), (user_id, category_id),
+           funding_source_id, import_id.
+  '''
+}
+
+Table ant_expense_rules {
+  id          uuid        [pk]
+  user_id     uuid        [not null]
+  max_amount  numeric     [note: 'Monto máximo para clasificar como gasto hormiga (ej: 5000 CLP)']
+  category_id uuid        [note: 'null = aplica a todas las categorías']
+  is_active   boolean     [not null]
+  created_at  timestamptz [not null]
+
+  Note: '''
+  [M6] Reglas para etiquetar gastos hormiga (transactions.is_ant_expense).
+  La regla base la configura producto en app_config; esta tabla permite ajuste por usuario.
+  Alimenta gráficos de fugas (M3) y recomendaciones de presupuesto (M6).
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G7 — Presupuesto   [Módulo 6]
+// ─────────────────────────────────────────────
+
+Table budget_periods {
+  id         uuid        [pk]
+  user_id    uuid        [not null]
+  year       int         [not null]
+  month      int         [not null, note: '1–12']
+  currency   text        [not null]
+  created_at timestamptz [not null]
+
+  Note: '[M6] Contenedor mensual del presupuesto. Índice único: (user_id, year, month).'
+}
+
+Table budget_lines {
+  id               uuid        [pk]
+  budget_period_id uuid        [not null]
+  category_id      uuid        [note: 'null solo si aplica a nivel total del período']
+  subcategory_id   uuid        [note: 'null = aplica a toda la categoría']
+  planned_amount   numeric     [not null, note: 'Meta mensual — valor contra el que se compara gasto real']
+  planned_min      numeric     [note: 'Mínimo sugerido por producto']
+  planned_max      numeric     [note: 'Máximo sugerido por producto']
+  suggested_by_app boolean     [not null, note: 'true = generado en onboarding; false = ajustado por usuario']
+  notes            text
+  created_at       timestamptz [not null]
+  updated_at       timestamptz [not null]
+
+  Note: '''
+  [M6] Meta de gasto por categoría en un período mensual.
+  planned_amount: umbral base; los % de alerta (50%, 80%, 100%) están en app_config.
+  suggested_by_app: trazabilidad de si el usuario ajustó el valor sugerido.
+  Índices: (budget_period_id), (budget_period_id, category_id).
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G8 — Motor de Deudas: Bola de Nieve   [Módulo 4]
+// ─────────────────────────────────────────────
+
+Table debts {
+  id                     uuid               [pk]
+  user_id                uuid               [not null]
+  name                   text               [not null, note: 'Nombre descriptivo (ej: "Tarjeta Banco X")']
+  creditor_label         text               [note: 'Nombre del acreedor']
+  debt_type              debt_type          [not null]
+  principal_initial      numeric            [note: 'Monto bruto/principal original']
+  current_balance        numeric            [not null, note: 'Deuda actual vigente — se reduce con cada pago']
+  currency               text               [not null]
+  apr_annual             numeric            [note: 'Tasa anual (APR). null si no aplica o se desconoce']
+  minimum_payment        numeric            [note: 'Pago mínimo exigido por el acreedor']
+  installments_total     int                [note: 'Cuotas pactadas totales. null si no aplica']
+  installments_remaining int                [note: 'Cuotas pendientes']
+  due_day                int                [note: 'Día del mes de vencimiento (1–31)']
+  next_due_date          date               [note: 'Próxima fecha calculada']
+  funding_source_id      uuid               [note: 'Cuenta o tarjeta asociada']
+  snowball_priority      int                [note: 'Posición en el plan (1 = pagar primero). null = sin calcular']
+  status                 debt_record_status [not null]
+  metadata               jsonb              [not null, note: 'Notas libres, datos adicionales']
+  created_at             timestamptz        [not null]
+  updated_at             timestamptz        [not null]
+  deleted_at             timestamptz        [note: 'Soft delete']
+
+  Note: '''
+  [M4] Registro central de deudas para la Bola de Nieve.
+  Campos mínimos para calcular bola de nieve: current_balance + minimum_payment.
+  snowball_priority: menor current_balance → prioridad 1 (V1).
+  Se actualiza al registrar un debt_payment.
+  Índices: (user_id, status), (user_id, snowball_priority ASC).
+  '''
+}
+
+Table debt_schedules {
+  id                uuid        [pk]
+  debt_id           uuid        [not null]
+  installment_no    int         [not null, note: 'Número de cuota (1, 2, 3…)']
+  due_date          date        [not null]
+  planned_principal numeric     [note: 'Capital de la cuota']
+  planned_interest  numeric     [note: 'Interés de la cuota']
+  created_at        timestamptz [not null]
+
+  Note: '''
+  [M4] Tabla de amortización / cronograma de cuotas.
+  Opcional: se genera si el usuario provee cuotas + tasa.
+  Alimenta la proyección de fecha de salida.
+  '''
+}
+
+Table debt_payments {
+  id             uuid        [pk]
+  debt_id        uuid        [not null]
+  paid_at        timestamptz [not null]
+  amount         numeric     [not null]
+  transaction_id uuid        [note: 'null = pago registrado manualmente sin transacción asociada']
+  notes          text
+  created_at     timestamptz [not null]
+
+  Note: '''
+  [M4] Pagos realizados a una deuda.
+  Al insertar: debe decrementar debts.current_balance y debts.installments_remaining.
+  transaction_id vincula el pago con el movimiento real de dinero.
+  Índice: (debt_id, paid_at DESC).
+  '''
+}
+
+Table debt_attachments {
+  id                uuid        [pk]
+  user_id           uuid        [not null]
+  debt_id           uuid        [note: 'null = adjunto aún sin deuda asignada']
+  storage_key       text        [not null, note: 'Clave en S3/storage']
+  mime_type         text        [note: '"application/pdf" | "text/csv" | "image/*"']
+  original_filename text
+  uploaded_at       timestamptz [not null]
+  parsed_summary    jsonb       [note: 'Datos extraídos: deudas detectadas, saldo, etc.']
+
+  Note: '''
+  [M4] Cartolas/documentos bancarios adjuntos.
+  El adjunto es apoyo, no requisito para registrar una deuda.
+  parsed_summary: resultado del parsing automático, revisado por el usuario antes de guardar.
+  '''
+}
+
+Table debt_snowball_plan {
+  id                    uuid        [pk]
+  user_id               uuid        [not null]
+  computed_at           timestamptz [not null]
+  ordered_debt_ids      uuid[]      [not null, note: 'IDs en el orden bola de nieve (menor balance primero)']
+  extra_monthly_payment numeric     [not null, note: 'Pago adicional mensual disponible para aplicar']
+  lump_sum_payment      numeric     [note: 'Pago único inicial adicional (simulador)']
+  estimated_completion  jsonb       [not null, note: '[{debt_id, estimated_paid_date, freed_capacity}]']
+
+  Note: '''
+  [M4] Plan calculado de Bola de Nieve.
+  Se recalcula cuando: cambia una deuda, cambia extra_monthly_payment, se registra un pago.
+  Cada cálculo genera un nuevo registro (no se sobreescribe) para trazabilidad histórica.
+  estimated_completion muestra cuándo se salda cada deuda y cuánta capacidad libera.
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G9 — Pipeline de Importación & Clasificación   [Módulo 4]
+// ─────────────────────────────────────────────
+
+Table statement_imports {
+  id                uuid          [pk]
+  user_id           uuid          [not null]
+  file_key          text          [not null, note: 'Referencia al archivo en storage']
+  original_filename text
+  status            import_status [not null]
+  parsed_at         timestamptz   [note: 'Cuándo terminó el parsing']
+  error_message     text          [note: 'null si no hubo error']
+  created_at        timestamptz   [not null]
+  updated_at        timestamptz   [not null]
+
+  Note: '''
+  [M4] Registro de importaciones de cartola o últimos movimientos.
+  Parsing asíncrono — el cliente hace polling del status.
+  Al completar: genera import_line_items + movement_classification_suggestions.
+  '''
+}
+
+Table import_line_items {
+  id                 uuid                      [pk]
+  import_id          uuid                      [not null]
+  row_index          int                       [note: 'Posición en el archivo original']
+  raw_row            jsonb                     [note: 'Fila original sin procesar']
+  normalized         jsonb                     [note: 'Fila normalizada: fecha, monto, descripción, tipo']
+  user_review_status import_line_review_status [not null]
+  created_at         timestamptz               [not null]
+  updated_at         timestamptz               [not null]
+
+  Note: '''
+  [M4] Filas de una importación para revisión del usuario.
+  pending → accepted (crea transaction) | rejected | edited (crea transaction modificada).
+  Índice: (import_id, user_review_status).
+  '''
+}
+
+Table movement_classification_suggestions {
+  id               uuid                    [pk]
+  user_id          uuid                    [not null]
+  transaction_id   uuid                    [note: 'null si proviene de import_line']
+  import_line_id   uuid                    [note: 'null si proviene de transaction existente']
+  suggested_target classification_target   [not null]
+  confidence       numeric                 [note: '0.0–1.0']
+  rule_matched     text                    [note: 'Clave de la regla disparada (ej: "cuota_tarjeta")']
+  user_decision    classification_decision [note: 'null = pendiente de decisión']
+  decided_at       timestamptz
+  created_at       timestamptz             [not null]
+
+  Note: '''
+  [M4] Sugerencias de clasificación por reglas de palabras clave.
+  debt_plan    → vincular/crear en debts (M4).
+  bills_payable → crear en bills_payable (M7).
+  El usuario siempre confirma — nunca se mueven datos sin aprobación explícita.
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G10 — Pagos & Cuentas por Pagar   [Módulo 7]
+// ─────────────────────────────────────────────
+
+Table bills_payable {
+  id                      uuid                [pk]
+  user_id                 uuid                [not null]
+  title                   text                [not null, note: 'Nombre (ej: "Arriendo", "Luz", "Netflix")']
+  amount                  numeric             [not null]
+  due_date                date                [not null]
+  status                  bill_payable_status [not null]
+  funding_source_id       uuid                [note: 'Cuenta desde la que se paga']
+  notes                   text
+  is_recurring            boolean             [not null, note: 'true = pago recurrente (detectado o marcado)']
+  recurrence_interval_days int               [note: '30=mensual, 7=semanal. null si no es recurrente']
+  paid_at                 timestamptz         [note: 'Cuándo se marcó como pagada']
+  linked_transaction_id   uuid                [note: 'Transacción que confirma el pago efectivo']
+  traffic_light_state     traffic_light       [note: 'Recalculado periódicamente vs due_date']
+  created_at              timestamptz         [not null]
+  updated_at              timestamptz         [not null]
+
+  Note: '''
+  [M7] Panel de cuentas por pagar. NO ejecuta pagos — solo controla y alerta.
+  traffic_light_state: green=≥7 días, yellow=1–6 días, red=vencida o hoy.
+  is_recurring + recurrence_interval_days: soporte para pagos periódicos.
+  linked_transaction_id: vincula al movimiento real una vez pagado.
+  Índices: (user_id, status), (user_id, due_date ASC).
+  '''
+}
+
+Table recurring_payment_suggestions {
+  id                uuid                       [pk]
+  user_id           uuid                       [not null]
+  source            suggestion_source          [not null]
+  suggested_payload jsonb                      [not null, note: '{ title, amount, due_date, interval_days }']
+  status            recurring_suggestion_status [not null]
+  created_at        timestamptz                [not null]
+  updated_at        timestamptz                [not null]
+
+  Note: '''
+  [M7] Sugerencias de pagos recurrentes detectados automáticamente.
+  Al aceptar: crea un registro en bills_payable con is_recurring=true.
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G11 — Gamificación   [Módulos 3, 9]
+// ─────────────────────────────────────────────
+
+Table gamification_rules {
+  id                  uuid        [pk]
+  event_type          text        [not null, unique, note: 'Ej: "register_transaction", "pay_on_time", "stay_under_budget"']
+  points              int         [not null]
+  label               text        [not null, note: 'Descripción visible al usuario']
+  description         text        [note: 'Contexto interno para el administrador']
+  is_active           boolean     [not null]
+  updated_by_admin_id uuid        [note: 'FK a admin_users']
+  updated_at          timestamptz [not null]
+  created_at          timestamptz [not null]
+
+  Note: '''
+  [M9 → M3] Reglas de puntos configurables desde el backoffice (M9).
+  Consumidas por el motor de gamificación (M3).
+  event_type UNIQUE: cada acción tiene una sola regla de puntos.
+  '''
+}
+
+Table gamification_events {
+  id             uuid        [pk]
+  user_id        uuid        [not null]
+  event_type     text        [not null, note: 'Debe existir en gamification_rules.event_type']
+  points         int         [not null, note: 'Snapshot de puntos al momento del evento (inmutable)']
+  reference_type text        [note: '"transaction" | "debt_payment" | "bill_paid" | "budget_met"']
+  reference_id   uuid        [note: 'ID del registro que generó el logro']
+  created_at     timestamptz [not null]
+
+  Note: '[M3] Log de eventos de gamificación. points es snapshot — cambios de regla no afectan histórico. Índice: (user_id, created_at DESC).'
+}
+
+Table user_gamification_stats {
+  user_id          uuid [pk]
+  total_points     int  [not null]
+  level            int  [not null, note: 'Calculado de total_points según tabla de niveles en app_config']
+  last_computed_at timestamptz [not null]
+
+  Note: '[M3] Totales acumulados de puntos y nivel. Se actualiza al insertar en gamification_events.'
+}
+
+Table user_score_history {
+  id           uuid        [pk]
+  user_id      uuid        [not null]
+  period_start date        [not null]
+  period_end   date        [not null]
+  points       int         [not null]
+  level        int         [not null]
+  created_at   timestamptz [not null]
+
+  Note: '''
+  [M3] Historial PERSONAL de puntaje por período.
+  Sin ranking público ni comparación social (fuera de alcance MVP).
+  Permite mostrar evolución del usuario en el tiempo.
+  Índice: (user_id, period_start DESC).
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G12 — Salud Financiera & Recomendaciones   [Módulos 3, 8]
+// ─────────────────────────────────────────────
+
+Table financial_health_snapshots {
+  id            uuid          [pk]
+  user_id       uuid          [not null]
+  snapshot_date date          [not null]
+  traffic_light traffic_light [not null]
+  score         numeric       [note: 'Puntaje 0–100 opcional para mostrar evolución']
+  payload       jsonb         [not null, note: '{ balance, total_debt, budget_used_pct, payments_overdue, … }']
+  created_at    timestamptz   [not null]
+
+  Note: '''
+  [M3, M8] Snapshot del semáforo financiero.
+  El Home (M3) lee el snapshot más reciente del usuario.
+  payload alimenta el contexto del asistente IA (M8) y las recomendaciones.
+  Criterio de traffic_light definido en app_config por producto.
+  Índice: (user_id, snapshot_date DESC).
+  '''
+}
+
+Table recommendation_events {
+  id           uuid                   [pk]
+  user_id      uuid                   [not null]
+  context      recommendation_context [not null, note: 'Pantalla donde se mostró']
+  rule_key     text                   [not null, note: 'Clave de la regla que disparó (ej: "budget_80pct")']
+  payload      jsonb                  [not null, note: '{ text, action_label, action_deep_link }']
+  shown_at     timestamptz            [not null]
+  dismissed_at timestamptz            [note: 'null = no descartada explícitamente']
+  actioned_at  timestamptz            [note: 'null = usuario no hizo click en la acción']
+  created_at   timestamptz            [not null]
+
+  Note: '''
+  [M3, M8] Log de recomendaciones contextuales mostradas.
+  Permite: evitar repetir la misma regla, medir qué recomendaciones generan acción.
+  rule_key: alineado con las reglas definidas en app_config.
+  Índice: (user_id, context, shown_at DESC).
+  '''
+}
+
+// ─────────────────────────────────────────────
+// G13 — IA & Soporte   [Módulo 8]
+// ─────────────────────────────────────────────
+
+Table ai_conversations {
+  id         uuid        [pk]
+  user_id    uuid        [not null]
+  title      text        [note: 'Primer mensaje truncado o generado automáticamente']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Note: '[M8] Sesión de chat con el asistente. Índice: (user_id, updated_at DESC).'
+}
+
+Table ai_messages {
+  id              uuid            [pk]
+  conversation_id uuid            [not null]
+  role            ai_message_role [not null]
+  content         text            [not null, note: 'Voz ya transcrita a texto antes de guardar']
+  token_usage     jsonb           [note: '{ prompt_tokens, completion_tokens, total } — tracking de costo LLM externo']
+  created_at      timestamptz     [not null]
+
+  Note: '[M8] Mensajes de una conversación. Índice: (conversation_id, created_at ASC).'
+}
+
+Table ai_tool_invocations {
+  id              uuid        [pk]
+  message_id      uuid        [not null]
+  tool_name       text        [not null, note: 'Ej: "get_balance", "get_debts", "get_budget_status"']
+  args            jsonb       [note: 'Argumentos enviados a la herramienta']
+  result          jsonb       [note: 'Resultado retornado']
+  created_at      timestamptz [not null]
+
+  Note: '[M8] Function calls del LLM para consultar contexto financiero del usuario.'
+}
+
+Table ai_context_snapshots {
+  id                uuid        [pk]
+  conversation_id   uuid        [not null]
+  snapshot_date     date        [not null]
+  financial_summary jsonb       [not null, note: '{ balance, total_debt, budget_used_pct, active_goals } — contexto al iniciar la sesión']
+  created_at        timestamptz [not null]
+
+  Note: '''
+  [M8] Snapshot del contexto financiero al inicio de una conversación.
+  1 snapshot por conversación. El LLM usa este contexto en lugar de hacer queries en tiempo real.
+  '''
+}
+
+Table faq_articles {
+  id         uuid        [pk]
+  slug       text        [not null, unique]
+  title      text        [not null]
+  body       text        [not null, note: 'Markdown o texto plano']
+  locale     text        [not null, note: '"es" | "es-CL"']
+  tags       text[]      [note: 'Para filtrado y sugerencia en el chat del asistente']
+  sort_order int         [not null]
+  is_active  boolean     [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Note: '[M8] Base de conocimiento FAQ. Contenido estático/semiestático actualizable desde backoffice (M9).'
+}
+
+// ─────────────────────────────────────────────
+// G14 — Administración   [Módulo 9]
+// ─────────────────────────────────────────────
+
+Table admin_users {
+  id            uuid        [pk]
+  email         text        [not null, unique]
+  password_hash text        [not null]
+  name          text        [not null]
+  role          admin_role  [not null]
+  is_active     boolean     [not null]
+  last_login_at timestamptz
+  created_at    timestamptz [not null]
+  updated_at    timestamptz [not null]
+
+  Note: '''
+  [M9] Cuentas del backoffice de administración.
+  SEPARADO de users (usuarios finales) — roles nunca se mezclan.
+  super_admin: acceso total. operator: lectura + configuración acotada.
+  '''
+}
+
+Table app_config {
+  key                 text        [pk, note: 'Ej: "budget.threshold.yellow_pct", "gamification.enabled"']
+  value               jsonb       [not null, note: 'Número, string, objeto — flexible por clave']
+  description         text        [note: 'Explicación del parámetro para el admin']
+  updated_by_admin_id uuid        [note: 'FK a admin_users']
+  updated_at          timestamptz [not null]
+
+  Note: '''
+  [M9] Configuración global ajustable por admin. Ejemplos de claves:
+    "budget.threshold.yellow_pct"   = 80
+    "budget.threshold.red_pct"      = 100
+    "ant_expense.default_max"       = 5000
+    "gamification.level_thresholds" = [0,100,300,600,…]
+    "recommendation.rules"          = { budget_80pct: { … }, payment_due_3d: { … } }
+    "traffic_light.criteria"        = { … }
+  '''
+}
+
+Table admin_audit_log {
+  id          uuid        [pk]
+  admin_id    uuid        [note: 'null = acción de sistema automático']
+  action      text        [not null, note: '"CREATE"|"UPDATE"|"DELETE"|"CONFIG_CHANGE"']
+  entity      text        [not null, note: 'Nombre de la tabla o recurso']
+  entity_id   uuid        [note: 'ID del registro afectado']
+  before_data jsonb       [note: 'Estado anterior']
+  after_data  jsonb       [note: 'Estado posterior']
+  created_at  timestamptz [not null]
+
+  Note: '[M9] Auditoría inmutable de acciones de administradores. Índices: (admin_id, created_at DESC), (entity, entity_id).'
+}
+
+Table audit_log {
+  id         uuid        [pk]
+  user_id    uuid        [note: 'null = acción de sistema']
+  action     text        [not null]
+  entity     text        [not null]
+  entity_id  uuid
+  diff       jsonb       [note: 'Diferencia antes/después']
+  created_at timestamptz [not null]
+
+  Note: '[M9] Auditoría de acciones de usuarios finales. Índices: (user_id, created_at DESC), (entity, created_at DESC).'
+}
+
+Table report_snapshots {
+  id                    uuid        [pk]
+  report_type           text        [not null, note: '"user_activation"|"usage_summary"|"debt_overview"|"budget_compliance"']
+  period_start          date        [not null]
+  period_end            date        [not null]
+  payload               jsonb       [not null, note: 'Datos pre-computados del reporte']
+  generated_at          timestamptz [not null]
+  generated_by_admin_id uuid        [note: 'FK a admin_users; null = generado por job automático']
+
+  Note: '''
+  [M9] Reportes básicos pre-computados para el backoffice.
+  Generados periódicamente por job o bajo demanda.
+  No es analítica avanzada ni data warehouse.
+  '''
+}
+
+// ─────────────────────────────────────────────
+// ROADMAP — Post-MVP (no implementar en V1)
+// ─────────────────────────────────────────────
+
+Table user_profiles {
+  user_id      uuid   [pk]
+  display_name text
+  avatar_url   text
+  timezone     text
+  locale       text
+
+  Note: '''
+  [ROADMAP] Extensión de perfil de usuario. No implementada en MVP.
+  En MVP, name y configuraciones básicas viven en users y alert_preferences.
+  '''
+}
+
+Table user_identities {
+  id        uuid [pk]
+  user_id   uuid [not null]
+  provider  text [not null, note: '"google" | "apple" | "facebook"']
+  subject   text [not null]
+  metadata  jsonb [not null]
+  created_at timestamptz [not null]
+
+  Note: '[ROADMAP] Login social. Fuera de alcance MVP — no implementar en V1.'
+}
+
+// ─────────────────────────────────────────────
+// GROUPS (para visualización en dbdiagram.io)
+// ─────────────────────────────────────────────
+
+TableGroup g1_auth {
+  users
+  refresh_tokens
+  password_reset_tokens
+  biometric_preferences
+}
+
+TableGroup g2_onboarding {
+  onboarding_state
+}
+
+TableGroup g3_profile {
+  user_financial_profile
+  user_goals
+}
+
+TableGroup g4_alerts {
+  alert_preferences
+  notification_queue
+}
+
+TableGroup g5_taxonomy {
+  funding_sources
+  categories
+  subcategories
+}
+
+TableGroup g6_transactions {
+  transactions
+  ant_expense_rules
+}
+
+TableGroup g7_budget {
+  budget_periods
+  budget_lines
+}
+
+TableGroup g8_debts {
+  debts
+  debt_schedules
+  debt_payments
+  debt_attachments
+  debt_snowball_plan
+}
+
+TableGroup g9_import {
+  statement_imports
+  import_line_items
+  movement_classification_suggestions
+}
+
+TableGroup g10_payments {
+  bills_payable
+  recurring_payment_suggestions
+}
+
+TableGroup g11_gamification {
+  gamification_rules
+  gamification_events
+  user_gamification_stats
+  user_score_history
+}
+
+TableGroup g12_health {
+  financial_health_snapshots
+  recommendation_events
+}
+
+TableGroup g13_ai {
+  ai_conversations
+  ai_messages
+  ai_tool_invocations
+  ai_context_snapshots
+  faq_articles
+}
+
+TableGroup g14_admin {
+  admin_users
+  app_config
+  admin_audit_log
+  audit_log
+  report_snapshots
+}
+
+// ─────────────────────────────────────────────
+// REFERENCIAS (FK)
+// ─────────────────────────────────────────────
+
+// G1 — Auth
+Ref: refresh_tokens.user_id > users.id
+Ref: password_reset_tokens.user_id > users.id
+Ref: email_verification_tokens.user_id > users.id
+Ref: biometric_preferences.user_id - users.id
+
+// G2 — Onboarding
+Ref: onboarding_state.user_id - users.id
+
+// G3 — Perfil
+Ref: user_financial_profile.user_id - users.id
+Ref: user_goals.user_id > users.id
+
+// G4 — Alertas
+Ref: alert_preferences.user_id > users.id
+Ref: notification_queue.user_id > users.id
+Ref: notification_queue.bills_payable_id > bills_payable.id
+
+// G5 — Taxonomía
+Ref: funding_sources.user_id > users.id
+Ref: categories.user_id > users.id
+Ref: subcategories.category_id > categories.id
+Ref: subcategories.user_id > users.id
+
+// G6 — Transacciones
+Ref: transactions.user_id > users.id
+Ref: transactions.funding_source_id > funding_sources.id
+Ref: transactions.category_id > categories.id
+Ref: transactions.subcategory_id > subcategories.id
+Ref: transactions.import_id > statement_imports.id
+Ref: ant_expense_rules.user_id > users.id
+Ref: ant_expense_rules.category_id > categories.id
+
+// G7 — Presupuesto
+Ref: budget_periods.user_id > users.id
+Ref: budget_lines.budget_period_id > budget_periods.id
+Ref: budget_lines.category_id > categories.id
+Ref: budget_lines.subcategory_id > subcategories.id
+
+// G8 — Deudas
+Ref: debts.user_id > users.id
+Ref: debts.funding_source_id > funding_sources.id
+Ref: debt_schedules.debt_id > debts.id
+Ref: debt_payments.debt_id > debts.id
+Ref: debt_payments.transaction_id > transactions.id
+Ref: debt_attachments.user_id > users.id
+Ref: debt_attachments.debt_id > debts.id
+Ref: debt_snowball_plan.user_id > users.id
+
+// G9 — Importación
+Ref: statement_imports.user_id > users.id
+Ref: import_line_items.import_id > statement_imports.id
+Ref: movement_classification_suggestions.user_id > users.id
+Ref: movement_classification_suggestions.transaction_id > transactions.id
+Ref: movement_classification_suggestions.import_line_id > import_line_items.id
+
+// G10 — Pagos
+Ref: bills_payable.user_id > users.id
+Ref: bills_payable.funding_source_id > funding_sources.id
+Ref: bills_payable.linked_transaction_id > transactions.id
+Ref: recurring_payment_suggestions.user_id > users.id
+
+// G11 — Gamificación
+Ref: gamification_rules.updated_by_admin_id > admin_users.id
+Ref: gamification_events.user_id > users.id
+Ref: user_gamification_stats.user_id - users.id
+Ref: user_score_history.user_id > users.id
+
+// G12 — Salud
+Ref: financial_health_snapshots.user_id > users.id
+Ref: recommendation_events.user_id > users.id
+
+// G13 — IA
+Ref: ai_conversations.user_id > users.id
+Ref: ai_messages.conversation_id > ai_conversations.id
+Ref: ai_tool_invocations.message_id > ai_messages.id
+Ref: ai_context_snapshots.conversation_id > ai_conversations.id
+
+// G14 — Admin
+Ref: app_config.updated_by_admin_id > admin_users.id
+Ref: admin_audit_log.admin_id > admin_users.id
+Ref: audit_log.user_id > users.id
+Ref: report_snapshots.generated_by_admin_id > admin_users.id

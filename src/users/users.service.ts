@@ -11,6 +11,14 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 const BCRYPT_ROUNDS = 12;
 
+/** Clasifica el username normalizado para determinar cómo se registró el usuario. */
+function detectIdentifierType(username: string): 'email' | 'rut' | 'username' {
+  if (username.includes('@')) return 'email';
+  // RUT chileno normalizado: 7-8 dígitos, guión, dígito verificador (0-9 o k)
+  if (/^\d{7,8}-[\dkK]$/.test(username)) return 'rut';
+  return 'username';
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -34,11 +42,13 @@ export class UsersService {
     }
 
     const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
-    const isEmailUsername = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedUsername);
+    const identifierType = detectIdentifierType(normalizedUsername);
 
     const user = this.usersRepo.create({
       username: normalizedUsername,
-      email: isEmailUsername ? normalizedUsername : null,
+      identifierType,
+      // Si se registró con email, copiamos el valor al campo email para búsquedas y recovery.
+      email: identifierType === 'email' ? normalizedUsername : null,
       name: null,
       passwordHash,
       acceptedTermsAt: data.acceptedTermsAt ?? null,
@@ -95,6 +105,20 @@ export class UsersService {
     }
   }
 
+  /**
+   * Establece el correo verificado del usuario.
+   * Llamado por AuthService tras confirmar el código de verificación.
+   */
+  async setEmailVerified(userId: string, email: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    user.email = email.toLowerCase();
+    user.emailVerifiedAt = new Date();
+    return this.usersRepo.save(user);
+  }
+
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,
@@ -120,6 +144,7 @@ export class UsersService {
     return {
       id: user.id,
       username: user.username,
+      identifierType: user.identifierType,
       email: user.email,
       name: user.name,
       createdAt: user.createdAt,
