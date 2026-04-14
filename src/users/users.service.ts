@@ -19,24 +19,32 @@ export class UsersService {
   ) {}
 
   async create(data: {
-    email: string;
+    username: string;
     password: string;
-    name: string;
     acceptedTermsAt?: Date | null;
   }): Promise<User> {
-    const existing = await this.usersRepo.findOne({
-      where: { email: data.email.toLowerCase() },
+    const normalizedUsername = data.username.trim().toLowerCase();
+
+    const existingUsername = await this.usersRepo.findOne({
+      where: { username: normalizedUsername },
     });
-    if (existing) {
-      throw new ConflictException('Ya existe un usuario con este correo');
+
+    if (existingUsername) {
+      throw new ConflictException('Ya existe un usuario con este username');
     }
+
     const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+    const isEmailUsername = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedUsername);
+
     const user = this.usersRepo.create({
-      email: data.email.toLowerCase(),
+      username: normalizedUsername,
+      email: isEmailUsername ? normalizedUsername : null,
+      name: null,
       passwordHash,
-      name: data.name,
       acceptedTermsAt: data.acceptedTermsAt ?? null,
+      emailVerifiedAt: null,
     });
+
     return this.usersRepo.save(user);
   }
 
@@ -50,11 +58,17 @@ export class UsersService {
     });
   }
 
-  async findByEmailWithPassword(email: string): Promise<User | null> {
+  async findByUsername(username: string): Promise<User | null> {
+    return this.usersRepo.findOne({
+      where: { username: username.toLowerCase() },
+    });
+  }
+
+  async findByUsernameWithPassword(username: string): Promise<User | null> {
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('user.email = :email', { email: email.toLowerCase() })
+      .where('user.username = :username', { username: username.toLowerCase() })
       .getOne();
   }
 
@@ -89,28 +103,29 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
-    if (dto.email && dto.email.toLowerCase() !== user.email) {
-      const taken = await this.usersRepo.findOne({
-        where: { email: dto.email.toLowerCase() },
-      });
-      if (taken) {
-        throw new ConflictException('El correo ya está en uso');
-      }
-      user.email = dto.email.toLowerCase();
+
+    if (dto.email !== undefined) {
+      user.email = dto.email ? dto.email.toLowerCase() : null;
+      user.emailVerifiedAt = null;
     }
+
     if (dto.name !== undefined) {
       user.name = dto.name;
     }
+
     return this.usersRepo.save(user);
   }
 
   toPublic(user: User) {
     return {
       id: user.id,
+      username: user.username,
       email: user.email,
       name: user.name,
       createdAt: user.createdAt,
       emailVerifiedAt: user.emailVerifiedAt,
+      needsEmailOnboarding: !user.email,
+      emailVerified: !!user.emailVerifiedAt,
     };
   }
 }
