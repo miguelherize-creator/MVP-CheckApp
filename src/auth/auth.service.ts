@@ -266,6 +266,23 @@ export class AuthService {
       }),
     );
 
+    // Guardar el correo como pendiente en users.email para que sea visible en login
+    // antes de que el usuario confirme el código.
+    // Solo se escribe si el usuario aún no tiene email (Flow B — RUT/username).
+    const user = await this.usersService.findById(userId);
+    if (user && !user.email) {
+      await this.usersService.setPendingEmail(userId, normalizedEmail);
+    }
+
+    // Avanzar el onboarding de 'email_collection' → 'email_verification'
+    await this.onboardingRepo
+      .createQueryBuilder()
+      .update(OnboardingState)
+      .set({ currentStep: 'email_verification' })
+      .where('user_id = :userId', { userId })
+      .andWhere('current_step = :step', { step: 'email_collection' })
+      .execute();
+
     await this.mailService.sendEmailVerificationCode(normalizedEmail, code);
 
     return { message: `Código de verificación enviado a ${normalizedEmail}` };

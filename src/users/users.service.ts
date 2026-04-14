@@ -106,6 +106,15 @@ export class UsersService {
   }
 
   /**
+   * Guarda el correo como pendiente de verificación.
+   * Llamado por AuthService al solicitar un código (Flow B — RUT/username).
+   * No toca email_verified_at — eso lo hace setEmailVerified al confirmar el código.
+   */
+  async setPendingEmail(userId: string, email: string): Promise<void> {
+    await this.usersRepo.update(userId, { email: email.toLowerCase() });
+  }
+
+  /**
    * Establece el correo verificado del usuario.
    * Llamado por AuthService tras confirmar el código de verificación.
    */
