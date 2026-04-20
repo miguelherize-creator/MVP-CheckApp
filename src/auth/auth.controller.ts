@@ -63,8 +63,8 @@ export class AuthController {
   @ApiOperation({
     summary: 'Solicitar código de verificación de correo',
     description:
-      'Flujo A: se llama automáticamente post-registro para usuarios con email. ' +
-      'Flujo B: el usuario ingresa su correo en la pantalla EmailVerification.',
+      'Se llama automáticamente post-registro. También permite solicitar verificación ' +
+      'tras un cambio de correo vía perfil.',
   })
   requestEmailVerification(
     @CurrentUser() user: JwtPayload,

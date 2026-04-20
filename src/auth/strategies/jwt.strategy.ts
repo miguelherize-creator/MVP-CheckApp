@@ -15,13 +15,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload): JwtPayload {
-    if (!payload?.sub || !payload?.username) {
+    if (!payload?.sub || !payload?.email) {
       throw new UnauthorizedException('Token inválido');
     }
 
     return {
       sub: payload.sub,
-      username: payload.username,
+      email: payload.email,
     };
   }
 }

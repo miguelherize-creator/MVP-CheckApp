@@ -11,28 +11,32 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ unique: true, length: 100, type: 'varchar' })
-  username!: string;
+  @Column({ name: 'first_name', type: 'varchar', length: 100 })
+  firstName!: string;
 
-  /**
-   * Cómo se registró el usuario: 'email' | 'rut' | 'username'.
-   * Determina qué normalizó el backend al almacenar `username`.
-   * Default 'email' para compatibilidad con registros anteriores al MVP.
-   */
-  @Column({ name: 'identifier_type', type: 'varchar', length: 20, default: 'email' })
-  identifierType!: 'email' | 'rut' | 'username';
+  @Column({ name: 'last_name', type: 'varchar', length: 100 })
+  lastName!: string;
 
-  @Column({ type: 'varchar', nullable: true, unique: true })
-  email!: string | null;
+  /** Correo electrónico — obligatorio en registro, identificador principal. */
+  @Column({ type: 'varchar', length: 255, unique: true })
+  email!: string;
+
+  /** RUT chileno normalizado (12345678-9). Opcional pero único si presente. */
+  @Column({ type: 'varchar', length: 20, nullable: true, unique: true })
+  rut!: string | null;
+
+  /** Handle/alias opcional. Puede usarse como identificador de login. */
+  @Column({ type: 'varchar', length: 100, nullable: true, unique: true })
+  username!: string | null;
 
   @Column({ name: 'password_hash', select: false, type: 'varchar' })
   passwordHash!: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  name!: string | null;
-
   @Column({ name: 'accepted_terms_at', type: 'timestamptz', nullable: true })
   acceptedTermsAt!: Date | null;
+
+  @Column({ name: 'accepted_privacy_at', type: 'timestamptz', nullable: true })
+  acceptedPrivacyAt!: Date | null;
 
   @Column({ name: 'email_verified_at', type: 'timestamptz', nullable: true })
   emailVerifiedAt!: Date | null;

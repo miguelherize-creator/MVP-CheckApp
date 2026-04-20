@@ -11,12 +11,14 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 const BCRYPT_ROUNDS = 12;
 
-/** Clasifica el username normalizado para determinar cómo se registró el usuario. */
-function detectIdentifierType(username: string): 'email' | 'rut' | 'username' {
-  if (username.includes('@')) return 'email';
-  // RUT chileno normalizado: 7-8 dígitos, guión, dígito verificador (0-9 o k)
-  if (/^\d{7,8}-[\dkK]$/.test(username)) return 'rut';
-  return 'username';
+/** Normaliza RUT: elimina puntos y pone K en mayúscula. Ej: "12.345.678-k" → "12345678-K" */
+function normalizeRut(rut: string): string {
+  return rut.replace(/\./g, '').toUpperCase();
+}
+
+/** Detecta si el identificador de login es un RUT chileno normalizado. */
+function isRutFormat(identifier: string): boolean {
+  return /^\d{7,8}-[\dK]$/.test(identifier);
 }
 
 @Injectable()
@@ -27,31 +29,38 @@ export class UsersService {
   ) {}
 
   async create(data: {
-    username: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    rut: string;
     password: string;
     acceptedTermsAt?: Date | null;
+    acceptedPrivacyAt?: Date | null;
   }): Promise<User> {
-    const normalizedUsername = data.username.trim().toLowerCase();
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const normalizedRut = normalizeRut(data.rut.trim());
 
-    const existingUsername = await this.usersRepo.findOne({
-      where: { username: normalizedUsername },
-    });
+    const emailExists = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
+    if (emailExists) {
+      throw new ConflictException('Ya existe una cuenta con este correo electrónico');
+    }
 
-    if (existingUsername) {
-      throw new ConflictException('Ya existe un usuario con este username');
+    const rutExists = await this.usersRepo.findOne({ where: { rut: normalizedRut } });
+    if (rutExists) {
+      throw new ConflictException('Ya existe una cuenta con este RUT');
     }
 
     const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
-    const identifierType = detectIdentifierType(normalizedUsername);
 
     const user = this.usersRepo.create({
-      username: normalizedUsername,
-      identifierType,
-      // Si se registró con email, copiamos el valor al campo email para búsquedas y recovery.
-      email: identifierType === 'email' ? normalizedUsername : null,
-      name: null,
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      email: normalizedEmail,
+      rut: normalizedRut,
+      username: null,
       passwordHash,
       acceptedTermsAt: data.acceptedTermsAt ?? null,
+      acceptedPrivacyAt: data.acceptedPrivacyAt ?? null,
       emailVerifiedAt: null,
     });
 
@@ -63,22 +72,45 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepo.findOne({
-      where: { email: email.toLowerCase() },
-    });
+    return this.usersRepo.findOne({ where: { email: email.trim().toLowerCase() } });
+  }
+
+  async findByRut(rut: string): Promise<User | null> {
+    return this.usersRepo.findOne({ where: { rut: normalizeRut(rut.trim()) } });
   }
 
   async findByUsername(username: string): Promise<User | null> {
-    return this.usersRepo.findOne({
-      where: { username: username.toLowerCase() },
-    });
+    return this.usersRepo.findOne({ where: { username: username.trim().toLowerCase() } });
   }
 
-  async findByUsernameWithPassword(username: string): Promise<User | null> {
+  /**
+   * Busca usuario por cualquier identificador de login (email, RUT o username).
+   * Incluye passwordHash para validación de credenciales.
+   */
+  async findByIdentifierWithPassword(identifier: string): Promise<User | null> {
+    const trimmed = identifier.trim();
+
+    if (trimmed.includes('@')) {
+      return this.usersRepo
+        .createQueryBuilder('user')
+        .addSelect('user.passwordHash')
+        .where('LOWER(user.email) = :email', { email: trimmed.toLowerCase() })
+        .getOne();
+    }
+
+    const normalized = normalizeRut(trimmed);
+    if (isRutFormat(normalized)) {
+      return this.usersRepo
+        .createQueryBuilder('user')
+        .addSelect('user.passwordHash')
+        .where('user.rut = :rut', { rut: normalized })
+        .getOne();
+    }
+
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('user.username = :username', { username: username.toLowerCase() })
+      .where('LOWER(user.username) = :username', { username: trimmed.toLowerCase() })
       .getOne();
   }
 
@@ -90,10 +122,7 @@ export class UsersService {
       .getOne();
   }
 
-  async validatePassword(
-    plain: string,
-    passwordHash: string,
-  ): Promise<boolean> {
+  async validatePassword(plain: string, passwordHash: string): Promise<boolean> {
     return bcrypt.compare(plain, passwordHash);
   }
 
@@ -106,18 +135,16 @@ export class UsersService {
   }
 
   /**
-   * Guarda el correo como pendiente de verificación.
-   * Llamado por AuthService al solicitar un código (Flow B — RUT/username).
-   * No toca email_verified_at — eso lo hace setEmailVerified al confirmar el código.
+   * Guarda un correo nuevo (sin verificar) en el perfil del usuario.
+   * Usado al solicitar verificación de un email diferente al actual.
    */
   async setPendingEmail(userId: string, email: string): Promise<void> {
-    await this.usersRepo.update(userId, { email: email.toLowerCase() });
+    await this.usersRepo.update(userId, {
+      email: email.toLowerCase(),
+      emailVerifiedAt: null,
+    });
   }
 
-  /**
-   * Establece el correo verificado del usuario.
-   * Llamado por AuthService tras confirmar el código de verificación.
-   */
   async setEmailVerified(userId: string, email: string): Promise<User> {
     const user = await this.findById(userId);
     if (!user) {
@@ -128,22 +155,39 @@ export class UsersService {
     return this.usersRepo.save(user);
   }
 
-  async updateProfile(
-    userId: string,
-    dto: UpdateProfileDto,
-  ): Promise<User> {
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User> {
     const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    if (dto.email !== undefined) {
-      user.email = dto.email ? dto.email.toLowerCase() : null;
-      user.emailVerifiedAt = null;
+    if (dto.firstName !== undefined) {
+      user.firstName = dto.firstName.trim();
     }
 
-    if (dto.name !== undefined) {
-      user.name = dto.name;
+    if (dto.lastName !== undefined) {
+      user.lastName = dto.lastName.trim();
+    }
+
+    if (dto.username !== undefined) {
+      const normalizedUsername = dto.username.trim().toLowerCase();
+      const existing = await this.usersRepo.findOne({ where: { username: normalizedUsername } });
+      if (existing && existing.id !== userId) {
+        throw new ConflictException('Este nombre de usuario ya está en uso');
+      }
+      user.username = normalizedUsername;
+    }
+
+    if (dto.email !== undefined) {
+      const normalizedEmail = dto.email.toLowerCase();
+      if (normalizedEmail !== user.email) {
+        const existing = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
+        if (existing && existing.id !== userId) {
+          throw new ConflictException('Este correo ya está registrado por otra cuenta');
+        }
+        user.email = normalizedEmail;
+        user.emailVerifiedAt = null;
+      }
     }
 
     return this.usersRepo.save(user);
@@ -152,14 +196,14 @@ export class UsersService {
   toPublic(user: User) {
     return {
       id: user.id,
-      username: user.username,
-      identifierType: user.identifierType,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
-      name: user.name,
-      createdAt: user.createdAt,
+      rut: user.rut,
+      username: user.username,
       emailVerifiedAt: user.emailVerifiedAt,
-      needsEmailOnboarding: !user.email,
       emailVerified: !!user.emailVerifiedAt,
+      createdAt: user.createdAt,
     };
   }
 }

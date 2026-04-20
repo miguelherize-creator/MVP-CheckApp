@@ -46,28 +46,32 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    if (dto.acceptTerms === false) {
+    if (!dto.acceptTerms) {
       throw new BadRequestException('Debes aceptar los términos para registrarte');
+    }
+    if (!dto.acceptPrivacy) {
+      throw new BadRequestException('Debes aceptar la política de privacidad para registrarte');
+    }
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Las contraseñas no coinciden');
     }
 
     const user = await this.usersService.create({
-      username: dto.username,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      email: dto.email,
+      rut: dto.rut,
       password: dto.password,
-      acceptedTermsAt: dto.acceptTerms === true ? new Date() : null,
+      acceptedTermsAt: new Date(),
+      acceptedPrivacyAt: new Date(),
     });
 
-    // Seed de fuentes de fondos (cashflow M4/M6)
     await this.cashflowSeed.ensureFundingSourcesForUser(user.id);
 
-    // Determinar el paso inicial del onboarding según el tipo de identificador
-    const isEmailFlow = user.identifierType === 'email';
-    const initialStep = isEmailFlow ? 'email_verification' : 'email_collection';
-
-    // Crear estado de onboarding
     await this.onboardingRepo.save(
       this.onboardingRepo.create({
         userId: user.id,
-        currentStep: initialStep,
+        currentStep: 'email_verification',
         financialProfileCompleted: false,
         goalsSet: false,
         importAttempted: false,
@@ -76,7 +80,6 @@ export class AuthService {
       }),
     );
 
-    // Crear preferencia biométrica inicial (desactivada)
     await this.biometricRepo.save(
       this.biometricRepo.create({
         userId: user.id,
@@ -86,28 +89,23 @@ export class AuthService {
       }),
     );
 
-    // Flow A: email → enviar código de verificación automáticamente
-    if (isEmailFlow && user.email) {
-      await this.requestEmailVerification(user.id, user.email);
-    }
+    // Siempre Flow A: enviar código de verificación al correo registrado
+    await this.requestEmailVerification(user.id, user.email);
 
     const tokens = await this.issueTokens(user);
     return {
       user: this.usersService.toPublic(user),
       ...tokens,
-      nextStep: initialStep,
+      nextStep: 'email_verification',
     };
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersService.findByUsernameWithPassword(dto.username);
+    const user = await this.usersService.findByIdentifierWithPassword(dto.identifier);
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
-    const ok = await this.usersService.validatePassword(
-      dto.password,
-      user.passwordHash,
-    );
+    const ok = await this.usersService.validatePassword(dto.password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
@@ -124,11 +122,7 @@ export class AuthService {
       where: { tokenHash: hash },
       relations: ['user'],
     });
-    if (
-      !row ||
-      row.revokedAt ||
-      row.expiresAt.getTime() < Date.now()
-    ) {
+    if (!row || row.revokedAt || row.expiresAt.getTime() < Date.now()) {
       throw new UnauthorizedException('Sesión inválida o expirada');
     }
     const user = await this.usersService.findById(row.userId);
@@ -150,19 +144,15 @@ export class AuthService {
     return { ok: true };
   }
 
-  async forgotPassword(emailOrUsername: string) {
-    let user = await this.usersService.findByEmail(emailOrUsername);
-
-    if (!user) {
-      user = await this.usersService.findByUsername(emailOrUsername);
-    }
+  async forgotPassword(email: string) {
+    const user = await this.usersService.findByEmail(email);
 
     const generic = {
       message:
         'Si el correo existe en nuestro sistema, recibirás instrucciones para restablecer tu contraseña.',
     };
 
-    if (!user || !user.email) {
+    if (!user) {
       return generic;
     }
 
@@ -192,11 +182,7 @@ export class AuthService {
       where: { tokenHash: hash },
       relations: ['user'],
     });
-    if (
-      !row ||
-      row.usedAt ||
-      row.expiresAt.getTime() < Date.now()
-    ) {
+    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
       throw new BadRequestException('Token inválido o expirado');
     }
     await this.usersService.updatePassword(row.userId, newPassword);
@@ -206,19 +192,12 @@ export class AuthService {
     return { message: 'Contraseña actualizada correctamente' };
   }
 
-  async changePassword(
-    userId: string,
-    currentPassword: string,
-    newPassword: string,
-  ) {
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
     const user = await this.usersService.findByIdWithPassword(userId);
     if (!user) {
       throw new UnauthorizedException();
     }
-    const ok = await this.usersService.validatePassword(
-      currentPassword,
-      user.passwordHash,
-    );
+    const ok = await this.usersService.validatePassword(currentPassword, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Contraseña actual incorrecta');
     }
@@ -230,13 +209,12 @@ export class AuthService {
   /**
    * Genera un código de 6 dígitos, lo almacena (hash SHA-256) y lo envía al correo.
    * Invalida cualquier token de verificación previo del mismo usuario.
-   * Flujo A: usuario se registró con email → llama aquí automáticamente post-registro.
-   * Flujo B: usuario se registró con RUT/username → llama aquí desde la pantalla EmailVerification.
+   * Si el email indicado difiere del almacenado, actualiza users.email como pendiente
+   * (sirve tanto para la verificación inicial post-registro como para cambios de correo).
    */
   async requestEmailVerification(userId: string, email: string) {
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Verificar que el correo no esté en uso por otro usuario
     const existing = await this.usersService.findByEmail(normalizedEmail);
     if (existing && existing.id !== userId) {
       throw new ConflictException('Este correo ya está registrado por otra cuenta');
@@ -251,10 +229,9 @@ export class AuthService {
       .andWhere('used_at IS NULL')
       .execute();
 
-    // Generar código de 6 dígitos y guardarlo como hash
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const tokenHash = hashOpaqueToken(code);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     await this.emailVerifRepo.save(
       this.emailVerifRepo.create({
@@ -266,32 +243,16 @@ export class AuthService {
       }),
     );
 
-    // Guardar el correo como pendiente en users.email para que sea visible en login
-    // antes de que el usuario confirme el código.
-    // Solo se escribe si el usuario aún no tiene email (Flow B — RUT/username).
+    // Si el email solicitado es diferente al almacenado (cambio de correo), actualizarlo
     const user = await this.usersService.findById(userId);
-    if (user && !user.email) {
+    if (user && user.email !== normalizedEmail) {
       await this.usersService.setPendingEmail(userId, normalizedEmail);
     }
 
-    // Avanzar el onboarding de 'email_collection' → 'email_verification'
-    await this.onboardingRepo
-      .createQueryBuilder()
-      .update(OnboardingState)
-      .set({ currentStep: 'email_verification' })
-      .where('user_id = :userId', { userId })
-      .andWhere('current_step = :step', { step: 'email_collection' })
-      .execute();
-
     await this.mailService.sendEmailVerificationCode(normalizedEmail, code);
-
     return { message: `Código de verificación enviado a ${normalizedEmail}` };
   }
 
-  /**
-   * Valida el código de 6 dígitos y actualiza el correo verificado del usuario.
-   * Marca el token como usado para evitar reutilización.
-   */
   async confirmEmailVerification(userId: string, email: string, code: string) {
     const normalizedEmail = email.trim().toLowerCase();
     const tokenHash = hashOpaqueToken(code);
@@ -308,22 +269,17 @@ export class AuthService {
       throw new BadRequestException('El correo no coincide con el código enviado');
     }
 
-    // Marcar token como usado
     row.usedAt = new Date();
     await this.emailVerifRepo.save(row);
 
-    // Actualizar email y email_verified_at del usuario
     const updatedUser = await this.usersService.setEmailVerified(userId, normalizedEmail);
 
-    // Avanzar el onboarding al siguiente paso
     await this.onboardingRepo
       .createQueryBuilder()
       .update(OnboardingState)
       .set({ currentStep: 'profile' })
       .where('user_id = :userId', { userId })
-      .andWhere('current_step IN (:...steps)', {
-        steps: ['email_verification', 'email_collection'],
-      })
+      .andWhere('current_step = :step', { step: 'email_verification' })
       .execute();
 
     return {
@@ -345,7 +301,7 @@ export class AuthService {
   private async issueTokens(user: User) {
     const payload: JwtPayload = {
       sub: user.id,
-      username: user.username,
+      email: user.email,
     };
     const accessToken = await this.jwtService.signAsync(payload);
     const refreshPlain = generateOpaqueToken();
@@ -366,5 +322,4 @@ export class AuthService {
       expiresIn: this.config.get<string>('JWT_EXPIRES_IN', '15m'),
     };
   }
-
 }

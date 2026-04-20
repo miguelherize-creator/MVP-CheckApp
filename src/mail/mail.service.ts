@@ -9,10 +9,13 @@ export class MailService {
   private transporter: Transporter | null = null;
 
   constructor(private readonly config: ConfigService) {
+    const isDev = this.config.get<string>('NODE_ENV', 'development') === 'development';
     const host = this.config.get<string>('SMTP_HOST');
     const user = this.config.get<string>('SMTP_USER');
 
-    if (host && user) {
+    if (isDev) {
+      this.logger.warn('NODE_ENV=development — emails solo se logearán en consola (SMTP desactivado).');
+    } else if (host && user) {
       this.transporter = nodemailer.createTransport({
         host,
         port: this.config.get<number>('SMTP_PORT', 587),
@@ -41,6 +44,7 @@ export class MailService {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`SMTP error enviando a ${to}: ${message}`);
+      throw err;
     }
   }
 

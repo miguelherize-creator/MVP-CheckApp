@@ -11,6 +11,7 @@ import { Category } from '../entities/category.entity';
 import { FundingSource } from '../entities/funding-source.entity';
 import { Subcategory } from '../entities/subcategory.entity';
 import { Transaction } from '../entities/transaction.entity';
+import { CategorizationStatus } from '../enums/categorization-status.enum';
 
 @Injectable()
 export class TransactionsService {
@@ -64,14 +65,14 @@ export class TransactionsService {
     return this.repo.find({
       where: { userId },
       order: { occurredOn: 'DESC', createdAt: 'DESC' },
-      relations: ['fundingSource', 'category', 'subcategory'],
+      relations: ['fundingSource', 'destinationFundingSource', 'category', 'subcategory'],
     });
   }
 
   async findOne(userId: string, id: string): Promise<Transaction> {
     const row = await this.repo.findOne({
       where: { id, userId },
-      relations: ['fundingSource', 'category', 'subcategory'],
+      relations: ['fundingSource', 'destinationFundingSource', 'category', 'subcategory'],
     });
     if (!row) {
       throw new NotFoundException('Movimiento no encontrado');
@@ -81,6 +82,7 @@ export class TransactionsService {
 
   async create(userId: string, dto: CreateTransactionDto): Promise<Transaction> {
     await this.assertFundingSource(userId, dto.fundingSourceId);
+    await this.assertFundingSource(userId, dto.destinationFundingSourceId);
     await this.assertCategory(userId, dto.categoryId);
     await this.assertSubcategory(userId, dto.subcategoryId);
     if (dto.categoryId && dto.subcategoryId) {
@@ -98,11 +100,14 @@ export class TransactionsService {
       movementType: dto.movementType,
       flowType: dto.flowType,
       fundingSourceId: dto.fundingSourceId ?? null,
+      destinationFundingSourceId: dto.destinationFundingSourceId ?? null,
       categoryId: dto.categoryId ?? null,
       subcategoryId: dto.subcategoryId ?? null,
       amount: String(dto.amount),
       occurredOn: dto.occurredOn.slice(0, 10),
+      bankDescription: dto.bankDescription ?? null,
       description: dto.description ?? null,
+      categorizationStatus: dto.categorizationStatus ?? CategorizationStatus.CATEGORIZED,
       isAntExpense: dto.isAntExpense ?? false,
       externalRef: dto.externalRef ?? null,
       deletedAt: null,
@@ -132,6 +137,10 @@ export class TransactionsService {
       await this.assertFundingSource(userId, dto.fundingSourceId ?? undefined);
       row.fundingSourceId = dto.fundingSourceId;
     }
+    if (dto.destinationFundingSourceId !== undefined) {
+      await this.assertFundingSource(userId, dto.destinationFundingSourceId ?? undefined);
+      row.destinationFundingSourceId = dto.destinationFundingSourceId;
+    }
     if (dto.categoryId !== undefined) {
       await this.assertCategory(userId, dto.categoryId ?? undefined);
       row.categoryId = dto.categoryId;
@@ -147,6 +156,7 @@ export class TransactionsService {
       row.occurredOn = dto.occurredOn.slice(0, 10);
     }
     if (dto.description !== undefined) row.description = dto.description;
+    if (dto.categorizationStatus !== undefined) row.categorizationStatus = dto.categorizationStatus;
     if (dto.isAntExpense !== undefined) row.isAntExpense = dto.isAntExpense;
     if (dto.externalRef !== undefined) row.externalRef = dto.externalRef;
     return this.repo.save(row);
