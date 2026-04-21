@@ -49,6 +49,10 @@ import { AppConfig } from './admin/entities/app-config.entity';
 import { AdminAuditLog } from './admin/entities/admin-audit-log.entity';
 import { AuditLog } from './admin/entities/audit-log.entity';
 import { ReportSnapshot } from './admin/entities/report-snapshot.entity';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { SubscriptionPlan } from './subscriptions/entities/subscription-plan.entity';
+import { Subscription } from './subscriptions/entities/subscription.entity';
+import { PaymentOrder } from './subscriptions/entities/payment-order.entity';
 
 @Module({
   controllers: [HealthController],
@@ -119,6 +123,9 @@ import { ReportSnapshot } from './admin/entities/report-snapshot.entity';
             AdminAuditLog,
             AuditLog,
             ReportSnapshot,
+            SubscriptionPlan,
+            Subscription,
+            PaymentOrder,
           ],
           // MVP: en producción usa migraciones; si aún no existen, DB_SYNC=true crea esquema (solo transitorio).
           synchronize: dbSync,
@@ -129,6 +136,7 @@ import { ReportSnapshot } from './admin/entities/report-snapshot.entity';
     UsersModule,
     AuthModule,
     CashflowModule,
+    SubscriptionsModule,
   ],
 })
 export class AppModule {}

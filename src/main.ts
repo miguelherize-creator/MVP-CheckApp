@@ -7,9 +7,14 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const isDev = process.env.NODE_ENV !== 'production';
   const corsOrigin = process.env.CORS_ORIGIN;
   app.enableCors({
-    origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : true,
+    origin: isDev
+      ? true
+      : corsOrigin
+        ? corsOrigin.split(',').map((o) => o.trim())
+        : false,
     credentials: true,
   });
 
