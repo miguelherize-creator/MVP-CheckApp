@@ -1,7 +1,8 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Redirect, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -17,7 +18,10 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 @Controller('auth')
 @UseGuards(ThrottlerGuard)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post('register')
   @ApiOperation({ summary: 'Registro de usuario' })
@@ -55,6 +59,38 @@ export class AuthController {
   @ApiOperation({ summary: 'Restablecer contraseña con token' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
+  /**
+   * Endpoint público — recibe el token del magic link del correo.
+   * Verifica la cuenta y redirige al deep link de la app con el resultado.
+   * URL del email: GET /auth/email-verification/confirm/:token
+   */
+  @Get('email-verification/confirm/:token')
+  @ApiOperation({
+    summary: 'Confirmar email vía magic link (enlace del correo, sin JWT)',
+    description:
+      'El usuario llega aquí al hacer clic en el enlace del correo de verificación. ' +
+      'Si el token es válido, marca el email como verificado y redirige al deep link de la app. ' +
+      'Si es inválido/expirado, redirige con status=error.',
+  })
+  @Redirect()
+  async confirmEmailViaLink(@Param('token') token: string) {
+    // CONFIRM_ACCOUNT_URL: URL base de redirección tras confirmar el email.
+    // - Expo web local:  http://localhost:8081/confirm-account
+    // - App nativa:      walvy://confirm-account
+    // - Producción web:  https://app.walvy.cl/confirm-account
+    const base = this.config.get<string>(
+      'CONFIRM_ACCOUNT_URL',
+      'http://localhost:8081/confirm-account',
+    );
+    try {
+      const result = await this.authService.confirmEmailVerificationByToken(token);
+      const name   = encodeURIComponent(result.user?.firstName ?? '');
+      return { url: `${base}?status=success&name=${name}` };
+    } catch {
+      return { url: `${base}?status=error` };
+    }
   }
 
   @Post('email-verification/request')

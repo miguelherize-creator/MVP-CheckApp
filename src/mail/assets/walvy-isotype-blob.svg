@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Walvy isotipo blureado  exportado del Figma del correo
+  (Walvi-APP - Edificate Inteligente / "Correo electrónico - Confirmar cuenta",
+   nodo 2927:3989 "Vector").
+
+  Diferencias intencionales con AuthBlobBackground.tsx (frontend / login):
+    · email   ’ opacity 0.1  / feGaussianBlur stdDeviation 60  (más sutil)
+    · login   ’ opacity 0.22 / feGaussianBlur stdDeviation 75  (más visible)
+
+  Cómo usarlo:
+    1. Sube este archivo a Supabase, mismo bucket que el resto:
+       `assets/email/walvy-isotype-blob.svg`
+    2. Genera la signed URL.
+    3. Pégala en `Backend/backend/.env` como:
+       MAIL_ISOTYPE_URL=https://&/walvy-isotype-blob.svg?token=&
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1225 1236" fill="none" preserveAspectRatio="xMidYMid meet">
+  <g opacity="0.1" filter="url(#walvyBlobBlur)">
+    <path d="M1004.74 156.139C1013.23 128.952 1042.03 113.843 1069.06 122.388C1096.09 130.934 1111.12 159.907 1102.63 187.097L876.905 909.575C870.751 929.272 853.513 943.384 833.091 945.449C812.668 947.514 792.983 937.132 783.056 919.06L612.493 608.581L441.931 919.06C432.004 937.13 412.33 947.512 391.91 945.449C371.488 943.384 354.25 929.272 348.096 909.575L122.374 187.097C113.88 159.909 128.9 130.936 155.925 122.388C182.953 113.844 211.754 128.953 220.251 156.139L410.06 763.688L567.596 476.929L569.388 473.925C578.787 459.261 594.991 450.289 612.493 450.288C631.162 450.288 648.358 460.493 657.391 476.929L814.913 763.674L1004.74 156.139Z" fill="#2A9DA8"/>
+    <path d="M894.483 970.602C909.148 961.957 928.006 966.901 936.602 981.652C945.198 996.405 940.269 1015.37 925.604 1024.02C822.465 1084.84 717.974 1116 612.504 1116C507.031 1116 402.531 1084.84 299.39 1024.02C284.726 1015.37 279.809 996.404 288.406 981.652C297.003 966.901 315.86 961.954 330.525 970.602C425.746 1026.75 519.615 1054.09 612.504 1054.09C705.392 1054.08 799.263 1026.75 894.483 970.602Z" fill="#FF5530"/>
+  </g>
+  <defs>
+    <filter id="walvyBlobBlur" x="-100" y="-100" width="1425" height="1436" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="60" result="blur"/>
+    </filter>
+  </defs>
+</svg>

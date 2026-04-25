@@ -4,3 +4,6 @@ dist
 .env.local
 *.log
 coverage
+
+# Email previews — generados por `npm run preview:email`
+src/mail/previews/

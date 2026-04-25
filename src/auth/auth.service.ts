@@ -207,10 +207,10 @@ export class AuthService {
   }
 
   /**
-   * Genera un código de 6 dígitos, lo almacena (hash SHA-256) y lo envía al correo.
-   * Invalida cualquier token de verificación previo del mismo usuario.
-   * Si el email indicado difiere del almacenado, actualiza users.email como pendiente
-   * (sirve tanto para la verificación inicial post-registro como para cambios de correo).
+   * Genera un token opaco URL-safe (32 bytes hex), lo almacena hasheado y envía
+   * un email con el enlace de confirmación (magic link).
+   * Invalida tokens previos del mismo usuario.
+   * Si el email difiere del almacenado (cambio de correo), lo marca como pendiente.
    */
   async requestEmailVerification(userId: string, email: string) {
     const normalizedEmail = email.trim().toLowerCase();
@@ -229,9 +229,11 @@ export class AuthService {
       .andWhere('used_at IS NULL')
       .execute();
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    const tokenHash = hashOpaqueToken(code);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    // Token opaco URL-safe (no código de 6 dígitos)
+    const plain = generateOpaqueToken();
+    const tokenHash = hashOpaqueToken(plain);
+    const hours = this.config.get<number>('EMAIL_VERIFICATION_EXPIRES_HOURS', 24);
+    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
     await this.emailVerifRepo.save(
       this.emailVerifRepo.create({
@@ -249,10 +251,69 @@ export class AuthService {
       await this.usersService.setPendingEmail(userId, normalizedEmail);
     }
 
-    await this.mailService.sendEmailVerificationCode(normalizedEmail, code);
-    return { message: `Código de verificación enviado a ${normalizedEmail}` };
+    // Construir URL del enlace con el token en texto plano
+    // EMAIL_VERIFICATION_URL_TEMPLATE: URL del enlace en el email.
+    // Debe apuntar al endpoint HTTP del backend, NO a un deep link walvy://.
+    // El backend valida el token y redirige a CONFIRM_ACCOUNT_URL.
+    const template = this.config.get<string>(
+      'EMAIL_VERIFICATION_URL_TEMPLATE',
+      'http://localhost:3000/auth/email-verification/confirm/{{token}}',
+    );
+    const verifyUrl = template.includes('{{token}}')
+      ? template.replace('{{token}}', encodeURIComponent(plain))
+      : `${template}${template.includes('?') ? '&' : '?'}token=${encodeURIComponent(plain)}`;
+
+    const firstName = user?.firstName ?? '';
+    const lastName = user?.lastName ?? '';
+    await this.mailService.sendEmailVerificationLink(
+      normalizedEmail,
+      firstName,
+      lastName,
+      verifyUrl,
+    );
+
+    return { message: `Enlace de verificación enviado a ${normalizedEmail}` };
   }
 
+  /**
+   * Confirma el email a través del token del magic link (endpoint público, sin JWT).
+   * El token viene directamente desde el enlace del correo.
+   */
+  async confirmEmailVerificationByToken(plainToken: string) {
+    const tokenHash = hashOpaqueToken(plainToken);
+
+    const row = await this.emailVerifRepo.findOne({
+      where: { tokenHash },
+      relations: ['user'],
+    });
+
+    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Enlace inválido o expirado');
+    }
+
+    row.usedAt = new Date();
+    await this.emailVerifRepo.save(row);
+
+    const updatedUser = await this.usersService.setEmailVerified(row.userId, row.email);
+
+    await this.onboardingRepo
+      .createQueryBuilder()
+      .update(OnboardingState)
+      .set({ currentStep: 'profile' })
+      .where('user_id = :userId', { userId: row.userId })
+      .andWhere('current_step = :step', { step: 'email_verification' })
+      .execute();
+
+    return {
+      message: 'Correo verificado correctamente',
+      user: this.usersService.toPublic(updatedUser),
+    };
+  }
+
+  /**
+   * @deprecated Mantener para compatibilidad con el flujo de código OTP anterior.
+   * Usar confirmEmailVerificationByToken() para el nuevo flujo de magic link.
+   */
   async confirmEmailVerification(userId: string, email: string, code: string) {
     const normalizedEmail = email.trim().toLowerCase();
     const tokenHash = hashOpaqueToken(code);
