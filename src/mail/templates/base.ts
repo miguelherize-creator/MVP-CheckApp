@@ -1,14 +1,29 @@
 /**
  * Shell común de los correos de Walvy.
  *
- * Centraliza head, watermark del isotipo, header (mascota + logo centrado),
- * divisores coral y footer. Los templates concretos solo componen `contentRows`
- * (las filas `<tr>…</tr>` del cuerpo entre los dos divisores).
+ * Centraliza head, watermark del isotipo (como BACKGROUND IMAGE, no como
+ * `<img>` posicionado), header (mascota + logo centrado), divisores coral y
+ * footer. Los templates concretos solo componen `contentRows` (las filas
+ * `<tr>…</tr>` del cuerpo entre los dos divisores).
  *
- * Isotipo: `src/mail/assets/walvy-isotype-blob.svg` (Figma 2927:3989). En
- * producción usa `MAIL_ISOTYPE_URL` (Supabase). Si no hay URL, se usa un
- * `data:image/svg+xml` embebido (Gmail quita `data:` en imágenes — en prod
- * conviene la URL pública).
+ * ─── Watermark / fondo del correo ────────────────────────────────────────────
+ * Antes se usaba `<img class="iso-watermark" style="position:absolute;...">`
+ * pero eso NO funciona en email:
+ *   • Gmail elimina/ignora `position:absolute` declarado en `<style>`, así que
+ *     el `<img>` cae al flujo normal y aparece como una imagen suelta arriba,
+ *     antes del contenido.
+ *   • Gmail/Outlook bloquean imágenes SVG en `<img src="…svg">`.
+ *
+ * Solución: técnica "bulletproof background image" — la imagen se aplica como
+ * fondo del `<td>` que contiene el correo combinando 3 fallbacks:
+ *   1. atributo HTML `background="…"` (Outlook 2007+ y otros viejos)
+ *   2. inline CSS `background-image:url(…)` (Apple Mail, Gmail, iOS, etc.)
+ *   3. VML `<v:rect>` + `<v:fill>` para Outlook desktop
+ *
+ * IMPORTANTE: para producción `MAIL_ISOTYPE_URL` debe apuntar a un PNG público
+ * (no SVG), porque la mayoría de clientes de correo bloquean SVG. Para el
+ * preview en el navegador se usa el SVG embebido como `data:` URI (los
+ * navegadores sí lo renderizan).
  */
 
 const COLOR = {
@@ -27,7 +42,10 @@ const COLOR = {
 
 const FONT = "'Segoe UI',Helvetica,Arial,sans-serif";
 
-/** Mismo vector que `assets/walvy-isotype-blob.svg` (opacity 0.1, blur 60 en el SVG). */
+/** Tamaño visual del watermark en píxeles (cuadrado). */
+const WATERMARK_SIZE = 720;
+
+/** Mismo vector que `assets/walvy-isotype-blob.svg` (opacity 0.1, blur 60). */
 function buildIsotypeBlobSvg(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1225 1236" fill="none" preserveAspectRatio="xMidYMid meet">
 <g opacity="0.1" filter="url(#walvyBlobBlur)">
@@ -44,16 +62,23 @@ function buildIsotypeBlobSvg(): string {
 </svg>`;
 }
 
+/**
+ * Codifica un SVG como `data:image/svg+xml;utf8,…` seguro para usar a la vez
+ * en atributos HTML (`background="…"`, `src="…"` doble-comilla) y en CSS
+ * (`background-image:url('…')` con comilla simple). La clave: NO dejar
+ * comillas simples ni dobles dentro de la URI.
+ */
 function svgToDataUri(svg: string): string {
   const encoded = svg
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/"/g, "'")
     .replace(/%/g, '%25')
     .replace(/#/g, '%23')
     .replace(/&/g, '%26')
     .replace(/</g, '%3C')
-    .replace(/>/g, '%3E');
+    .replace(/>/g, '%3E')
+    .replace(/"/g, '%22')
+    .replace(/'/g, '%27');
   return `data:image/svg+xml;utf8,${encoded}`;
 }
 
@@ -112,7 +137,11 @@ export interface EmailShellOptions {
   title: string;
   mascotUrl: string;
   logoUrl: string;
-  /** URL pública (p. ej. Supabase) del SVG isotipo. Si falta, `data:` embebido. */
+  /**
+   * URL pública del watermark (PNG recomendado).
+   * Si falta, se usa el SVG `data:` embebido (solo navegador — Gmail no lo
+   * renderiza, pero es perfecto para los previews HTML locales).
+   */
   isotypeUrl?: string;
   contentRows: string;
 }
@@ -120,8 +149,18 @@ export interface EmailShellOptions {
 export function renderEmailShell(opts: EmailShellOptions): string {
   const watermarkSrc = opts.isotypeUrl?.trim() || ISOTYPE_DATA_URI;
 
+  // Estilos compartidos del wrapper que lleva el background.
+  // background-position: center top → el blob se ve cerca del header (como en Figma).
+  // background-size: 720px (con fallback a "auto" en clientes que no soportan size).
+  const bgStyle =
+    `background-color:${COLOR.bg};` +
+    `background-image:url('${watermarkSrc}');` +
+    `background-position:center top;` +
+    `background-repeat:no-repeat;` +
+    `background-size:${WATERMARK_SIZE}px ${WATERMARK_SIZE}px;`;
+
   return `<!DOCTYPE html>
-<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -137,17 +176,6 @@ export function renderEmailShell(opts: EmailShellOptions): string {
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
     img { -ms-interpolation-mode: bicubic; border: 0; display: block; outline: none; text-decoration: none; }
     a { color: inherit; }
-    .iso-watermark {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 720px;
-      height: 720px;
-      max-width: none;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 0;
-    }
     @media screen and (max-width: 600px) {
       .outer-table  { padding: 16px 8px !important; }
       .inner-table  { width: 100% !important; }
@@ -156,46 +184,61 @@ export function renderEmailShell(opts: EmailShellOptions): string {
       .cta-btn      { padding: 14px 24px !important; font-size: 15px !important; }
       .alt-link     { font-size: 12px !important; }
       .body-text    { font-size: 15px !important; }
-      .iso-watermark { width: 480px !important; height: 480px !important; }
     }
   </style>
 </head>
 <body style="margin:0;padding:0;background-color:${COLOR.bg};font-family:${FONT};">
 
-  <div style="position:relative;width:100%;background-color:${COLOR.bg};overflow:hidden;">
+  <!--
+    Wrapper table con el watermark como background image.
+    - Atributo HTML "background" -> Outlook 2007+ y otros clientes legacy.
+    - inline CSS "background-image" -> Apple Mail, Gmail web/iOS, Yahoo, etc.
+    - bgcolor -> fallback puro si la imagen no carga.
+  -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         bgcolor="${COLOR.bg}" background="${watermarkSrc}"
+         style="${bgStyle}">
+    <tr>
+      <td align="center" valign="top" style="padding:0;">
 
-    <!--[if !mso]><!-->
-    <img class="iso-watermark"
-         src="${watermarkSrc}"
-         alt=""
-         aria-hidden="true"
-         width="720" height="720" />
-    <!--<![endif]-->
+        <!--[if gte mso 9]>
+        <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false"
+                style="mso-width-percent:1000;height:${WATERMARK_SIZE}px;">
+          <v:fill type="frame" src="${watermarkSrc}" color="${COLOR.bg}" />
+          <v:textbox style="mso-fit-shape-to-text:true" inset="0,0,0,0">
+        <![endif]-->
 
-    <table class="outer-table" role="presentation" width="100%" cellpadding="0" cellspacing="0"
-           style="position:relative;z-index:1;background-color:transparent;padding:40px 16px;">
-      <tr>
-        <td align="center">
+        <table class="outer-table" role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="background-color:transparent;padding:40px 16px;">
+          <tr>
+            <td align="center">
 
-          <table class="inner-table" role="presentation" width="560" cellpadding="0" cellspacing="0"
-                 style="max-width:560px;width:100%;background-color:transparent;">
+              <table class="inner-table" role="presentation" width="560" cellpadding="0" cellspacing="0"
+                     style="max-width:560px;width:100%;background-color:transparent;">
 
-            ${headerRow(opts.mascotUrl, opts.logoUrl)}
+                ${headerRow(opts.mascotUrl, opts.logoUrl)}
 
-            ${dividerRow(40)}
+                ${dividerRow(40)}
 
-            ${opts.contentRows}
+                ${opts.contentRows}
 
-            ${dividerRow(32)}
+                ${dividerRow(32)}
 
-            ${footerRows()}
+                ${footerRows()}
 
-          </table>
-        </td>
-      </tr>
-    </table>
+              </table>
+            </td>
+          </tr>
+        </table>
 
-  </div>
+        <!--[if gte mso 9]>
+          </v:textbox>
+        </v:rect>
+        <![endif]-->
+
+      </td>
+    </tr>
+  </table>
 
 </body>
 </html>`;

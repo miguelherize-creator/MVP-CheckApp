@@ -1,19 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Walvy isotipo blureado  exportado del Figma del correo
-  (Walvi-APP - Edificate Inteligente / "Correo electrónico - Confirmar cuenta",
+  Walvy isotipo blureado - exportado del Figma del correo
+  (Walvi-APP - Edificate Inteligente / "Correo electronico - Confirmar cuenta",
    nodo 2927:3989 "Vector").
 
   Diferencias intencionales con AuthBlobBackground.tsx (frontend / login):
-    · email   ’ opacity 0.1  / feGaussianBlur stdDeviation 60  (más sutil)
-    · login   ’ opacity 0.22 / feGaussianBlur stdDeviation 75  (más visible)
+    - email: opacity 0.1  / feGaussianBlur stdDeviation 60  (mas sutil)
+    - login: opacity 0.22 / feGaussianBlur stdDeviation 75  (mas visible)
 
-  Cómo usarlo:
-    1. Sube este archivo a Supabase, mismo bucket que el resto:
-       `assets/email/walvy-isotype-blob.svg`
-    2. Genera la signed URL.
-    3. Pégala en `Backend/backend/.env` como:
-       MAIL_ISOTYPE_URL=https://&/walvy-isotype-blob.svg?token=&
+  ============================================================================
+  Como usar este asset
+  ============================================================================
+  1. Este SVG se usa SOLO para el preview HTML local (`npm run preview:email`)
+     via `data:image/svg+xml` embebido en `templates/base.ts`. Los navegadores
+     renderizan el filtro `feGaussianBlur` correctamente.
+
+  2. Para el correo REAL (produccion) NO sirve un SVG: Gmail/Outlook bloquean
+     imagenes SVG en `<img>` y en `background-image`. Necesitas un PNG con la
+     opacidad y el blur YA horneados:
+       a) Genera un PNG 720x720 a partir de este SVG (Inkscape, Figma export,
+          o cualquier conversor online tipo cloudconvert).
+       b) Subelo a Supabase como `assets/email/walvy-isotype-blob.png`.
+       c) Genera la signed URL publica.
+       d) Actualiza `Backend/backend/.env`:
+            MAIL_ISOTYPE_URL=https://.../walvy-isotype-blob.png?token=...
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1225 1236" fill="none" preserveAspectRatio="xMidYMid meet">
   <g opacity="0.1" filter="url(#walvyBlobBlur)">

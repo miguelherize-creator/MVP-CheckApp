@@ -3,7 +3,19 @@
  *
  *   npm run preview:email
  *
- * Salida: `src/mail/previews/email-verification.html` y `email-reset.html`
+ * Salida: `src/mail/previews/email-verification.html` y `email-reset.html`.
+ *
+ * ─── Nota sobre el watermark ────────────────────────────────────────────────
+ * En producción (correo real) `MAIL_ISOTYPE_URL` debe ser un **PNG público**
+ * (Gmail/Outlook bloquean SVG como `<img>`/`background-image`).
+ *
+ * Para los previews en el navegador NO usamos esa URL: dejamos que `base.ts`
+ * caiga al SVG embebido (`data:image/svg+xml;…`). Los navegadores sí lo
+ * renderizan, y así el preview siempre carga aunque la URL de Supabase esté
+ * caída/expirada.
+ *
+ * Si quieres ver cómo queda con la URL real de producción, ejecuta:
+ *   USE_ENV_ISOTYPE=1 npm run preview:email
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -26,10 +38,7 @@ const SAMPLE = {
     'https://wmcikwohegcihyafclco.supabase.co/storage/v1/object/sign/assets/email/walvy-logo-horizontal-transparent.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80YjI0ZTVhNi1mZDY2LTRiZDMtYjg1MS0yZGVjNWJiNTM1NzgiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvZW1haWwvd2FsdnktbG9nby1ob3Jpem9udGFsLXRyYW5zcGFyZW50LnBuZyIsImlhdCI6MTc3NzA3MTQyNywiZXhwIjoxNzc3Njc2MjI3fQ.8f25BwS7BpFLqFsRfmLHFgCxC-uhqfEgJuhatLXHcM0',
 };
 
-/**
- * Si existe `MAIL_ISOTYPE_URL` en `Backend/backend/.env`, el preview la usa
- * (mismo flujo que producción). Si no, los templates usan el SVG `data:` embebido.
- */
+/** Lee `MAIL_ISOTYPE_URL` del `.env` (solo si `USE_ENV_ISOTYPE=1`). */
 function readIsotypeUrlFromEnvFile(): string | undefined {
   try {
     const envPath = join(__dirname, '../..', '.env');
@@ -50,7 +59,9 @@ function write(name: string, html: string): void {
 
 function main(): void {
   mkdirSync(OUTPUT_DIR, { recursive: true });
-  const isotypeUrl = readIsotypeUrlFromEnvFile();
+
+  const useEnv = process.env.USE_ENV_ISOTYPE === '1';
+  const isotypeUrl = useEnv ? readIsotypeUrlFromEnvFile() : undefined;
 
   write(
     'email-verification.html',
@@ -59,7 +70,7 @@ function main(): void {
       verifyUrl:  SAMPLE.verifyUrl,
       mascotUrl:  SAMPLE.mascotUrl,
       logoUrl:    SAMPLE.logoUrl,
-      isotypeUrl: isotypeUrl,
+      isotypeUrl,
     }),
   );
 
@@ -70,16 +81,21 @@ function main(): void {
       expiresMinutes: SAMPLE.expiresMinutes,
       mascotUrl:      SAMPLE.mascotUrl,
       logoUrl:        SAMPLE.logoUrl,
-      isotypeUrl:     isotypeUrl,
+      isotypeUrl,
     }),
   );
 
-  if (isotypeUrl) {
-    console.log('  (MAIL_ISOTYPE_URL leído de .env — misma imagen que producción)\n');
+  if (useEnv) {
+    if (isotypeUrl) {
+      console.log('  (USE_ENV_ISOTYPE=1 — watermark = MAIL_ISOTYPE_URL del .env)\n');
+    } else {
+      console.log('  (USE_ENV_ISOTYPE=1 pero MAIL_ISOTYPE_URL no está en .env — fallback a SVG data:)\n');
+    }
   } else {
-    console.log('  (sin MAIL_ISOTYPE_URL en .env — watermark = SVG embebido data:)\n');
+    console.log('  (watermark = SVG embebido data: — siempre carga en el navegador)\n');
+    console.log('  Tip: USE_ENV_ISOTYPE=1 npm run preview:email para usar la URL real.');
   }
-  console.log('Previews generados. Deben coincidir con el HTML que envía MailService.');
+  console.log('Previews generados.');
 }
 
 main();
