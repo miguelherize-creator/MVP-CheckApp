@@ -60,6 +60,8 @@ import { PaymentOrder } from './subscriptions/entities/payment-order.entity';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
+      /** Permite ${HOST_FRONTEND} / ${HOST_BACKEND} en .env (definir esas vars antes que el resto). */
+      expandVariables: true,
     }),
     ThrottlerModule.forRoot({
       throttlers: [

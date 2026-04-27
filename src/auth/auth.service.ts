@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -27,6 +28,8 @@ import { CashflowSeedService } from '../cashflow/services/cashflow-seed.service'
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly cashflowSeed: CashflowSeedService,
@@ -89,8 +92,21 @@ export class AuthService {
       }),
     );
 
-    // Siempre Flow A: enviar código de verificación al correo registrado
-    await this.requestEmailVerification(user.id, user.email);
+    // Token en BD ya; SMTP puede tardar — no bloquear la respuesta HTTP del registro
+    const mailPayload = await this.buildEmailVerificationMailPayload(user.id, user.email);
+    void this.mailService
+      .sendEmailVerificationLink(
+        mailPayload.normalizedEmail,
+        mailPayload.firstName,
+        mailPayload.lastName,
+        mailPayload.verifyUrl,
+      )
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Correo de verificación no enviado tras registro (${mailPayload.normalizedEmail}): ${msg}`,
+        );
+      });
 
     const tokens = await this.issueTokens(user);
     return {
@@ -213,6 +229,28 @@ export class AuthService {
    * Si el email difiere del almacenado (cambio de correo), lo marca como pendiente.
    */
   async requestEmailVerification(userId: string, email: string) {
+    const p = await this.buildEmailVerificationMailPayload(userId, email);
+    await this.mailService.sendEmailVerificationLink(
+      p.normalizedEmail,
+      p.firstName,
+      p.lastName,
+      p.verifyUrl,
+    );
+    return { message: `Enlace de verificación enviado a ${p.normalizedEmail}` };
+  }
+
+  /**
+   * Persistencia + URL del magic link; el envío SMTP lo decide el llamador (sync o en background).
+   */
+  private async buildEmailVerificationMailPayload(
+    userId: string,
+    email: string,
+  ): Promise<{
+    normalizedEmail: string;
+    firstName: string;
+    lastName: string;
+    verifyUrl: string;
+  }> {
     const normalizedEmail = email.trim().toLowerCase();
 
     const existing = await this.usersService.findByEmail(normalizedEmail);
@@ -220,7 +258,6 @@ export class AuthService {
       throw new ConflictException('Este correo ya está registrado por otra cuenta');
     }
 
-    // Invalidar tokens previos del mismo usuario
     await this.emailVerifRepo
       .createQueryBuilder()
       .update(EmailVerificationToken)
@@ -229,7 +266,6 @@ export class AuthService {
       .andWhere('used_at IS NULL')
       .execute();
 
-    // Token opaco URL-safe (no código de 6 dígitos)
     const plain = generateOpaqueToken();
     const tokenHash = hashOpaqueToken(plain);
     const hours = this.config.get<number>('EMAIL_VERIFICATION_EXPIRES_HOURS', 24);
@@ -245,16 +281,11 @@ export class AuthService {
       }),
     );
 
-    // Si el email solicitado es diferente al almacenado (cambio de correo), actualizarlo
     const user = await this.usersService.findById(userId);
     if (user && user.email !== normalizedEmail) {
       await this.usersService.setPendingEmail(userId, normalizedEmail);
     }
 
-    // Construir URL del enlace con el token en texto plano
-    // EMAIL_VERIFICATION_URL_TEMPLATE: URL del enlace en el email.
-    // Debe apuntar al endpoint HTTP del backend, NO a un deep link walvy://.
-    // El backend valida el token y redirige a CONFIRM_ACCOUNT_URL.
     const template = this.config.get<string>(
       'EMAIL_VERIFICATION_URL_TEMPLATE',
       'http://localhost:3000/auth/email-verification/confirm/{{token}}',
@@ -265,29 +296,41 @@ export class AuthService {
 
     const firstName = user?.firstName ?? '';
     const lastName = user?.lastName ?? '';
-    await this.mailService.sendEmailVerificationLink(
-      normalizedEmail,
-      firstName,
-      lastName,
-      verifyUrl,
-    );
 
-    return { message: `Enlace de verificación enviado a ${normalizedEmail}` };
+    return { normalizedEmail, firstName, lastName, verifyUrl };
   }
 
   /**
    * Confirma el email a través del token del magic link (endpoint público, sin JWT).
    * El token viene directamente desde el enlace del correo.
+   *
+   * Idempotente: si el enlace ya se consumió pero el usuario ya quedó verificado
+   * (p. ej. antivirus del correo abrió el link antes), devuelve éxito de nuevo.
    */
   async confirmEmailVerificationByToken(plainToken: string) {
-    const tokenHash = hashOpaqueToken(plainToken);
+    const normalizedPlain = this.normalizeMagicLinkToken(plainToken);
+    const tokenHash = hashOpaqueToken(normalizedPlain);
 
     const row = await this.emailVerifRepo.findOne({
       where: { tokenHash },
       relations: ['user'],
     });
 
-    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+    if (!row) {
+      throw new BadRequestException('Enlace inválido o expirado');
+    }
+    if (row.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Enlace inválido o expirado');
+    }
+
+    if (row.usedAt) {
+      const already = await this.usersService.findById(row.userId);
+      if (already?.emailVerifiedAt) {
+        return {
+          message: 'Correo verificado correctamente',
+          user: this.usersService.toPublic(already),
+        };
+      }
       throw new BadRequestException('Enlace inválido o expirado');
     }
 
@@ -308,6 +351,21 @@ export class AuthService {
       message: 'Correo verificado correctamente',
       user: this.usersService.toPublic(updatedUser),
     };
+  }
+
+  /** Algunos clientes codifican el token en la URL más de una vez. */
+  private normalizeMagicLinkToken(raw: string): string {
+    let t = raw.trim();
+    for (let i = 0; i < 3; i++) {
+      try {
+        const next = decodeURIComponent(t);
+        if (next === t) break;
+        t = next;
+      } catch {
+        break;
+      }
+    }
+    return t;
   }
 
   /**

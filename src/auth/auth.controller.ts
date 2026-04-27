@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Redirect, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Redirect,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -18,6 +27,8 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 @Controller('auth')
 @UseGuards(ThrottlerGuard)
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
@@ -76,21 +87,47 @@ export class AuthController {
   })
   @Redirect()
   async confirmEmailViaLink(@Param('token') token: string) {
-    // CONFIRM_ACCOUNT_URL: URL base de redirección tras confirmar el email.
-    // - Expo web local:  http://localhost:8081/confirm-account
-    // - App nativa:      walvy://confirm-account
-    // - Producción web:  https://app.walvy.cl/confirm-account
-    const base = this.config.get<string>(
+    const legacyBase = this.config.get<string>(
       'CONFIRM_ACCOUNT_URL',
       'http://localhost:8081/confirm-account',
     );
+    const successBase = this.config.get<string>(
+      'EMAIL_VERIFY_REDIRECT_SUCCESS_WEB',
+      legacyBase,
+    );
+    const errorBase = this.config.get<string>(
+      'EMAIL_VERIFY_REDIRECT_ERROR_WEB',
+      legacyBase,
+    );
+
     try {
       const result = await this.authService.confirmEmailVerificationByToken(token);
-      const name   = encodeURIComponent(result.user?.firstName ?? '');
-      return { url: `${base}?status=success&name=${name}` };
-    } catch {
-      return { url: `${base}?status=error` };
+      return {
+        url: this.buildRedirectUrl(successBase, {
+          status: 'success',
+          name: result.user?.firstName ?? '',
+        }),
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`email-verification/confirm failed: ${msg}`);
+      return {
+        url: this.buildRedirectUrl(errorBase, { status: 'error' }),
+      };
     }
+  }
+
+  private buildRedirectUrl(base: string, params: Record<string, string>): string {
+    const hasQuery = base.includes('?');
+    const query = Object.entries(params)
+      .filter(([, value]) => value !== '')
+      .map(
+        ([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
+      )
+      .join('&');
+
+    if (!query) return base;
+    return `${base}${hasQuery ? '&' : '?'}${query}`;
   }
 
   @Post('email-verification/request')
