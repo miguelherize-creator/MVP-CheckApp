@@ -13,6 +13,13 @@ import { FundingSource } from './cashflow/entities/funding-source.entity';
 import { Category } from './cashflow/entities/category.entity';
 import { Subcategory } from './cashflow/entities/subcategory.entity';
 import { Transaction } from './cashflow/entities/transaction.entity';
+// ── M2: Perfil financiero ─────────────────────────────────────────────────────
+import { ProfileModule } from './profile/profile.module';
+import { UserFinancialProfile } from './profile/entities/user-financial-profile.entity';
+// ── M5: Importación de cartolas ───────────────────────────────────────────────
+import { StatementImportModule } from './statement-import/statement-import.module';
+import { StatementImport } from './statement-import/entities/statement-import.entity';
+import { ImportLineItem } from './statement-import/entities/import-line-item.entity';
 
 @Module({
   controllers: [HealthController],
@@ -22,13 +29,7 @@ import { Transaction } from './cashflow/entities/transaction.entity';
       envFilePath: ['.env.local', '.env'],
     }),
     ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          name: 'short',
-          ttl: 60000,
-          limit: 100,
-        },
-      ],
+      throttlers: [{ name: 'short', ttl: 60000, limit: 100 }],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -47,8 +48,12 @@ import { Transaction } from './cashflow/entities/transaction.entity';
             Category,
             Subcategory,
             Transaction,
+            // M2
+            UserFinancialProfile,
+            // M5
+            StatementImport,
+            ImportLineItem,
           ],
-          // MVP: en producción usa migraciones; si aún no existen, DB_SYNC=true crea esquema (solo transitorio).
           synchronize: !isProd || forceSync,
           logging: config.get<string>('NODE_ENV') === 'development',
         };
@@ -57,6 +62,8 @@ import { Transaction } from './cashflow/entities/transaction.entity';
     UsersModule,
     AuthModule,
     CashflowModule,
+    ProfileModule,
+    StatementImportModule,
   ],
 })
 export class AppModule {}
