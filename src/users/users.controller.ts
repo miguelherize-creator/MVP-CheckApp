@@ -37,7 +37,9 @@ export class UsersController {
 
   @Patch('me')
   @UseGuards(AuthGuard('jwt'))
-  @ApiOperation({ summary: 'Actualizar nombre o correo' })
+  @ApiOperation({
+    summary: 'Actualizar perfil (nombre, apellido, alias/username, correo)',
+  })
   async updateMe(
     @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateProfileDto,

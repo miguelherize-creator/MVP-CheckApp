@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CatalogSeedService } from '../catalog/catalog-seed.service';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -16,45 +17,90 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
+    private readonly catalogSeed: CatalogSeedService,
   ) {}
 
   async create(data: {
     email: string;
     password: string;
-    name: string;
+    documentNumber: string;
+    documentTypeId: number;
     acceptedTermsAt?: Date | null;
+    acceptedPrivacyAt?: Date | null;
+    fullName?: string | null;
+    trialDays?: number;
   }): Promise<User> {
-    const existing = await this.usersRepo.findOne({
-      where: { email: data.email.toLowerCase() },
-    });
-    if (existing) {
-      throw new ConflictException('Ya existe un usuario con este correo');
+    const normalizedEmail = data.email.trim().toLowerCase();
+
+    const emailExists = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
+    if (emailExists) {
+      throw new ConflictException('Ya existe una cuenta con este correo electrónico');
     }
+
     const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+    const defaults = this.catalogSeed.getDefaults();
+
+    const now = new Date();
+    const trialEndsAt = data.trialDays
+      ? new Date(now.getTime() + data.trialDays * 24 * 60 * 60 * 1000)
+      : null;
+
     const user = this.usersRepo.create({
-      email: data.email.toLowerCase(),
+      email: normalizedEmail,
       passwordHash,
-      name: data.name,
+      fullName: data.fullName?.trim() ?? null,
+      documentTypeId: data.documentTypeId,
+      documentNumber: data.documentNumber.trim(),
+      identifierType: 'email',
+      countryId: defaults.countryId,
+      defaultCurrencyId: defaults.currencyId,
+      roleId: defaults.roleId,
+      userStatusId: defaults.pendingVerificationStatusId,
       acceptedTermsAt: data.acceptedTermsAt ?? null,
+      acceptedPrivacyAt: data.acceptedPrivacyAt ?? null,
+      emailVerifiedAt: null,
+      username: null,
+      avatarUrl: null,
+      notificationEmail: null,
+      notificationEmailVerifiedAt: null,
+      authProvider: null,
+      authProviderUserId: null,
+      trialStartedAt: trialEndsAt ? now : null,
+      trialEndsAt,
+      currentFinancialHealthLevelId: null,
+      financialHealthUpdatedAt: null,
     });
+
     return this.usersRepo.save(user);
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.usersRepo.findOne({ where: { id } });
+    return this.usersRepo.findOne({ where: { userId: id } });
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepo.findOne({
-      where: { email: email.toLowerCase() },
-    });
+    return this.usersRepo.findOne({ where: { email: email.trim().toLowerCase() } });
   }
 
-  async findByEmailWithPassword(email: string): Promise<User | null> {
+  async findByUsername(username: string): Promise<User | null> {
+    return this.usersRepo.findOne({ where: { username: username.trim().toLowerCase() } });
+  }
+
+  async findByIdentifierWithPassword(identifier: string): Promise<User | null> {
+    const trimmed = identifier.trim();
+
+    if (trimmed.includes('@')) {
+      return this.usersRepo
+        .createQueryBuilder('user')
+        .addSelect('user.passwordHash')
+        .where('LOWER(user.email) = :email', { email: trimmed.toLowerCase() })
+        .getOne();
+    }
+
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('user.email = :email', { email: email.toLowerCase() })
+      .where('LOWER(user.username) = :username', { username: trimmed.toLowerCase() })
       .getOne();
   }
 
@@ -62,55 +108,88 @@ export class UsersService {
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('user.id = :id', { id })
+      .where('user.userId = :id', { id })
       .getOne();
   }
 
-  async validatePassword(
-    plain: string,
-    passwordHash: string,
-  ): Promise<boolean> {
+  async validatePassword(plain: string, passwordHash: string): Promise<boolean> {
     return bcrypt.compare(plain, passwordHash);
   }
 
   async updatePassword(userId: string, newPlainPassword: string): Promise<void> {
     const passwordHash = await bcrypt.hash(newPlainPassword, BCRYPT_ROUNDS);
-    const res = await this.usersRepo.update(userId, { passwordHash });
+    const res = await this.usersRepo.update({ userId }, { passwordHash });
     if (!res.affected) {
       throw new NotFoundException('Usuario no encontrado');
     }
   }
 
-  async updateProfile(
-    userId: string,
-    dto: UpdateProfileDto,
-  ): Promise<User> {
+  async setPendingEmail(userId: string, email: string): Promise<void> {
+    await this.usersRepo.update({ userId }, {
+      email: email.toLowerCase(),
+      emailVerifiedAt: null,
+    });
+  }
+
+  async setEmailVerified(userId: string, email: string): Promise<User> {
     const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
     }
-    if (dto.email && dto.email.toLowerCase() !== user.email) {
-      const taken = await this.usersRepo.findOne({
-        where: { email: dto.email.toLowerCase() },
-      });
-      if (taken) {
-        throw new ConflictException('El correo ya está en uso');
+    user.email = email.toLowerCase();
+    user.emailVerifiedAt = new Date();
+    user.userStatusId = this.catalogSeed.getDefaults().activeStatusId;
+    return this.usersRepo.save(user);
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (dto.fullName !== undefined) {
+      user.fullName = dto.fullName.trim();
+    }
+
+    if (dto.username !== undefined) {
+      const normalizedUsername = dto.username.trim().toLowerCase();
+      const existing = await this.usersRepo.findOne({ where: { username: normalizedUsername } });
+      if (existing && existing.userId !== userId) {
+        throw new ConflictException('Este nombre de usuario ya está en uso');
       }
-      user.email = dto.email.toLowerCase();
+      user.username = normalizedUsername;
     }
-    if (dto.name !== undefined) {
-      user.name = dto.name;
+
+    if (dto.avatarUrl !== undefined) {
+      user.avatarUrl = dto.avatarUrl;
     }
+
+    if (dto.email !== undefined) {
+      const normalizedEmail = dto.email.toLowerCase();
+      if (normalizedEmail !== user.email) {
+        const existing = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
+        if (existing && existing.userId !== userId) {
+          throw new ConflictException('Este correo ya está registrado por otra cuenta');
+        }
+        user.email = normalizedEmail;
+        user.emailVerifiedAt = null;
+      }
+    }
+
     return this.usersRepo.save(user);
   }
 
   toPublic(user: User) {
     return {
-      id: user.id,
+      id: user.userId,
+      fullName: user.fullName,
       email: user.email,
-      name: user.name,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      emailVerified: !!user.emailVerifiedAt,
+      trialEndsAt: user.trialEndsAt,
       createdAt: user.createdAt,
-      emailVerifiedAt: user.emailVerifiedAt,
     };
   }
 }
