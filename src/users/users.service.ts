@@ -8,85 +8,74 @@ import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CatalogSeedService } from '../catalog/catalog-seed.service';
 
 const BCRYPT_ROUNDS = 12;
-
-/** Normaliza RUT: elimina puntos y pone K en mayúscula. Ej: "12.345.678-k" → "12345678-K" */
-function normalizeRut(rut: string): string {
-  return rut.replace(/\./g, '').toUpperCase();
-}
-
-/** Detecta si el identificador de login es un RUT chileno normalizado. */
-function isRutFormat(identifier: string): boolean {
-  return /^\d{7,8}-[\dK]$/.test(identifier);
-}
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
+    private readonly catalogSeed: CatalogSeedService,
   ) {}
 
   async create(data: {
-    firstName: string;
-    lastName: string;
+    fullName: string;
     email: string;
-    rut: string;
     password: string;
+    documentNumber?: string | null;
     acceptedTermsAt?: Date | null;
-    acceptedPrivacyAt?: Date | null;
   }): Promise<User> {
     const normalizedEmail = data.email.trim().toLowerCase();
-    const normalizedRut = normalizeRut(data.rut.trim());
 
     const emailExists = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
     if (emailExists) {
       throw new ConflictException('Ya existe una cuenta con este correo electrónico');
     }
 
-    const rutExists = await this.usersRepo.findOne({ where: { rut: normalizedRut } });
-    if (rutExists) {
-      throw new ConflictException('Ya existe una cuenta con este RUT');
-    }
-
     const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+    const defaults = this.catalogSeed.getDefaults();
 
     const user = this.usersRepo.create({
-      firstName: data.firstName.trim(),
-      lastName: data.lastName.trim(),
       email: normalizedEmail,
-      rut: normalizedRut,
-      username: null,
       passwordHash,
+      fullName: data.fullName.trim(),
+      documentNumber: data.documentNumber?.trim() ?? null,
+      identifierType: 'email',
+      countryId: defaults.countryId,
+      defaultCurrencyId: defaults.currencyId,
+      roleId: defaults.roleId,
+      userStatusId: defaults.userStatusId,
       acceptedTermsAt: data.acceptedTermsAt ?? null,
-      acceptedPrivacyAt: data.acceptedPrivacyAt ?? null,
       emailVerifiedAt: null,
+      username: null,
+      avatarUrl: null,
+      notificationEmail: null,
+      notificationEmailVerifiedAt: null,
+      authProvider: null,
+      authProviderUserId: null,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      currentFinancialHealthLevelId: null,
+      financialHealthUpdatedAt: null,
     });
 
     return this.usersRepo.save(user);
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.usersRepo.findOne({ where: { id } });
+    return this.usersRepo.findOne({ where: { userId: id } });
   }
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepo.findOne({ where: { email: email.trim().toLowerCase() } });
   }
 
-  async findByRut(rut: string): Promise<User | null> {
-    return this.usersRepo.findOne({ where: { rut: normalizeRut(rut.trim()) } });
-  }
-
   async findByUsername(username: string): Promise<User | null> {
     return this.usersRepo.findOne({ where: { username: username.trim().toLowerCase() } });
   }
 
-  /**
-   * Busca usuario por cualquier identificador de login (email, RUT o username).
-   * Incluye passwordHash para validación de credenciales.
-   */
   async findByIdentifierWithPassword(identifier: string): Promise<User | null> {
     const trimmed = identifier.trim();
 
@@ -95,15 +84,6 @@ export class UsersService {
         .createQueryBuilder('user')
         .addSelect('user.passwordHash')
         .where('LOWER(user.email) = :email', { email: trimmed.toLowerCase() })
-        .getOne();
-    }
-
-    const normalized = normalizeRut(trimmed);
-    if (isRutFormat(normalized)) {
-      return this.usersRepo
-        .createQueryBuilder('user')
-        .addSelect('user.passwordHash')
-        .where('user.rut = :rut', { rut: normalized })
         .getOne();
     }
 
@@ -118,7 +98,7 @@ export class UsersService {
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('user.id = :id', { id })
+      .where('user.userId = :id', { id })
       .getOne();
   }
 
@@ -128,18 +108,14 @@ export class UsersService {
 
   async updatePassword(userId: string, newPlainPassword: string): Promise<void> {
     const passwordHash = await bcrypt.hash(newPlainPassword, BCRYPT_ROUNDS);
-    const res = await this.usersRepo.update(userId, { passwordHash });
+    const res = await this.usersRepo.update({ userId }, { passwordHash });
     if (!res.affected) {
       throw new NotFoundException('Usuario no encontrado');
     }
   }
 
-  /**
-   * Guarda un correo nuevo (sin verificar) en el perfil del usuario.
-   * Usado al solicitar verificación de un email diferente al actual.
-   */
   async setPendingEmail(userId: string, email: string): Promise<void> {
-    await this.usersRepo.update(userId, {
+    await this.usersRepo.update({ userId }, {
       email: email.toLowerCase(),
       emailVerifiedAt: null,
     });
@@ -161,28 +137,28 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    if (dto.firstName !== undefined) {
-      user.firstName = dto.firstName.trim();
-    }
-
-    if (dto.lastName !== undefined) {
-      user.lastName = dto.lastName.trim();
+    if (dto.fullName !== undefined) {
+      user.fullName = dto.fullName.trim();
     }
 
     if (dto.username !== undefined) {
       const normalizedUsername = dto.username.trim().toLowerCase();
       const existing = await this.usersRepo.findOne({ where: { username: normalizedUsername } });
-      if (existing && existing.id !== userId) {
+      if (existing && existing.userId !== userId) {
         throw new ConflictException('Este nombre de usuario ya está en uso');
       }
       user.username = normalizedUsername;
+    }
+
+    if (dto.avatarUrl !== undefined) {
+      user.avatarUrl = dto.avatarUrl;
     }
 
     if (dto.email !== undefined) {
       const normalizedEmail = dto.email.toLowerCase();
       if (normalizedEmail !== user.email) {
         const existing = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
-        if (existing && existing.id !== userId) {
+        if (existing && existing.userId !== userId) {
           throw new ConflictException('Este correo ya está registrado por otra cuenta');
         }
         user.email = normalizedEmail;
@@ -195,14 +171,18 @@ export class UsersService {
 
   toPublic(user: User) {
     return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      id: user.userId,
+      fullName: user.fullName,
       email: user.email,
-      rut: user.rut,
       username: user.username,
+      avatarUrl: user.avatarUrl,
+      documentNumber: user.documentNumber,
       emailVerifiedAt: user.emailVerifiedAt,
       emailVerified: !!user.emailVerifiedAt,
+      countryId: user.countryId,
+      defaultCurrencyId: user.defaultCurrencyId,
+      trialStartedAt: user.trialStartedAt,
+      trialEndsAt: user.trialEndsAt,
       createdAt: user.createdAt,
     };
   }

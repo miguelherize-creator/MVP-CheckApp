@@ -1,8 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -10,35 +11,26 @@ import {
 } from 'class-validator';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'Ana' })
+  @ApiProperty({ example: 'Ana Pérez' })
   @IsString()
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
   @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
-  @MaxLength(100, { message: 'El nombre no puede superar 100 caracteres' })
-  firstName!: string;
-
-  @ApiProperty({ example: 'Pérez' })
-  @IsString()
-  @IsNotEmpty({ message: 'El apellido es obligatorio' })
-  @MinLength(2, { message: 'El apellido debe tener al menos 2 caracteres' })
-  @MaxLength(100, { message: 'El apellido no puede superar 100 caracteres' })
-  lastName!: string;
-
-  @ApiProperty({
-    description: 'RUT chileno sin puntos, con guión (ej: 12345678-9 o 12345678-K)',
-    example: '12345678-9',
-  })
-  @IsString()
-  @IsNotEmpty({ message: 'El RUT es obligatorio' })
-  @Matches(/^\d{7,8}-[\dkK]$/, {
-    message: 'Formato de RUT inválido. Use el formato 12345678-9',
-  })
-  rut!: string;
+  @MaxLength(200, { message: 'El nombre no puede superar 200 caracteres' })
+  fullName!: string;
 
   @ApiProperty({ example: 'ana@example.com' })
   @IsEmail({}, { message: 'Correo electrónico inválido' })
   @IsNotEmpty({ message: 'El correo es obligatorio' })
   email!: string;
+
+  @ApiPropertyOptional({
+    description: 'Número de documento (ej: RUT chileno 12345678-9)',
+    example: '12345678-9',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  documentNumber?: string;
 
   @ApiProperty({
     description:
@@ -62,8 +54,4 @@ export class RegisterDto {
   @ApiProperty({ description: 'Debe ser true para poder registrarse' })
   @IsBoolean({ message: 'Debes indicar si aceptas los términos' })
   acceptTerms!: boolean;
-
-  @ApiProperty({ description: 'Debe ser true para poder registrarse' })
-  @IsBoolean({ message: 'Debes indicar si aceptas la política de privacidad' })
-  acceptPrivacy!: boolean;
 }

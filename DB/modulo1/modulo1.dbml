@@ -1,0 +1,216 @@
+
+// ═══════════════════════════════════════════════════════════════════
+// WALVY DB — Módulo 1: Identidad, Autenticación y Acceso
+// ═══════════════════════════════════════════════════════════════════
+
+// ─── LAYER 0 — ISO CATALOGS ─────────────────────────────────────────
+
+Table country {
+  country_id   bigserial    [pk, increment]
+  country_code char(2)      [not null, unique, note: 'ISO-3166-1 alpha-2. Ej: CL, CO, AR']
+  name         varchar(100) [not null, unique]
+  created_at   timestamptz  [not null, default: `now()`]
+  updated_at   timestamptz  [not null, default: `now()`]
+}
+
+Table currency {
+  currency_id   bigserial    [pk, increment]
+  currency_code char(3)      [not null, unique, note: 'ISO-4217. Ej: CLP, USD, COP']
+  name          varchar(100) [not null]
+  minor_units   smallint     [not null, note: '0 = CLP · 2 = USD/COP']
+  created_at    timestamptz  [not null, default: `now()`]
+  updated_at    timestamptz  [not null, default: `now()`]
+}
+
+Table country_currency {
+  country_id  bigint      [not null, ref: > country.country_id]
+  currency_id bigint      [not null, ref: > currency.currency_id]
+  is_primary  boolean     [not null, default: false, note: 'Solo 1 moneda primaria por país']
+  created_at  timestamptz [not null, default: `now()`]
+  updated_at  timestamptz [not null, default: `now()`]
+
+  indexes {
+    (country_id, currency_id) [pk]
+    (country_id) [unique, name: 'uq_country_currency_primary', note: 'WHERE is_primary = true']
+  }
+}
+
+Table document_type {
+  document_type_id bigserial    [pk, increment]
+  code             varchar(30)  [not null, unique, note: 'Ej: RUT, DNI, PASSPORT']
+  name             varchar(100) [not null]
+  country_id       bigint       [ref: > country.country_id, note: 'NULL = aplica globalmente']
+  subject_scope    varchar(10)  [not null, default: 'person', note: 'person | company | both']
+  created_at       timestamptz  [not null, default: `now()`]
+  updated_at       timestamptz  [not null, default: `now()`]
+
+  indexes {
+    (country_id, name) [unique, name: 'uq_document_type_name_country']
+  }
+}
+
+// ─── LAYER 1 — STATUS CENTRALIZADO ──────────────────────────────────
+
+Table status_domain {
+  status_domain_id bigserial    [pk, increment]
+  code             varchar(50)  [not null, unique, note: 'Ej: user · debt · subscription · movement']
+  name             varchar(100) [not null]
+  created_at       timestamptz  [not null, default: `now()`]
+  updated_at       timestamptz  [not null, default: `now()`]
+}
+
+Table status {
+  status_id        bigserial    [pk, increment]
+  status_domain_id bigint       [not null, ref: > status_domain.status_domain_id]
+  code             varchar(50)  [not null, note: 'Único dentro del dominio']
+  name             varchar(100) [not null]
+  is_active        boolean      [not null, default: true]
+  sort_order       smallint     [not null, default: 0]
+  created_at       timestamptz  [not null, default: `now()`]
+  updated_at       timestamptz  [not null, default: `now()`]
+
+  indexes {
+    (status_domain_id, code) [unique, name: 'uq_status_domain_code']
+  }
+}
+
+// ─── LAYER 2 — RBAC ─────────────────────────────────────────────────
+
+Table role {
+  role_id     bigserial    [pk, increment]
+  code        varchar(50)  [not null, unique, note: 'admin | support | user']
+  name        varchar(100) [not null]
+  description text
+  created_at  timestamptz  [not null, default: `now()`]
+  updated_at  timestamptz  [not null, default: `now()`]
+}
+
+Table permission {
+  permission_id bigserial    [pk, increment]
+  code          varchar(120) [not null, unique, note: 'Ej: movements.read · debts.write']
+  name          varchar(150) [not null]
+  description   text
+  path_pattern  varchar(200) [note: 'Ej: /api/movements*']
+  http_methods  varchar(50)  [note: 'Ej: GET,POST']
+  created_at    timestamptz  [not null, default: `now()`]
+  updated_at    timestamptz  [not null, default: `now()`]
+}
+
+Table role_permission {
+  role_id       bigint      [not null, ref: > role.role_id]
+  permission_id bigint      [not null, ref: > permission.permission_id]
+  created_at    timestamptz [not null, default: `now()`]
+  updated_at    timestamptz [not null, default: `now()`]
+
+  indexes {
+    (role_id, permission_id) [pk]
+  }
+}
+
+// ─── LAYER 3 — CONFIG Y SALUD FINANCIERA ────────────────────────────
+
+Table financial_health_level {
+  financial_health_level_id bigserial    [pk, increment]
+  code                      varchar(50)  [not null, unique, note: 'overwhelmed | transitioning | in_control']
+  name_es                   varchar(120) [not null]
+  description_es            text
+  asset_path                varchar(500) [note: 'Ruta del asset del avatar Walvy']
+  is_active                 boolean      [not null, default: true]
+  created_at                timestamptz  [not null, default: `now()`]
+  updated_at                timestamptz  [not null, default: `now()`]
+}
+
+Table app_config {
+  key                 text        [pk]
+  value               jsonb       [not null]
+  value_type          varchar(10) [not null, default: 'json', note: 'integer | decimal | boolean | json | text']
+  description         text
+  updated_by_admin_id uuid        [note: 'FK a admin_users']
+  updated_at          timestamptz [not null, default: `now()`]
+}
+
+// ─── LAYER 4 — IDENTIDAD Y AUTH ─────────────────────────────────────
+
+Table app_user {
+  user_id                           uuid         [pk, default: `gen_random_uuid()`]
+  email                             varchar(320) [unique, note: 'NULL permitido si usa OAuth (post-MVP)']
+  password_hash                     text         [note: 'bcrypt · NULL si solo OAuth']
+  auth_provider                     varchar(50)  [note: 'Capacidad post-MVP: google | apple']
+  auth_provider_user_id             varchar(200)
+  identifier_type                   varchar(20)  [not null, default: 'email', note: 'email | rut | username']
+  full_name                         varchar(200)
+  username                          varchar(80)
+  document_type_id                  bigint       [ref: > document_type.document_type_id]
+  document_number                   varchar(50)
+  country_id                        bigint       [not null, ref: > country.country_id]
+  default_currency_id               bigint       [not null, ref: > currency.currency_id]
+  role_id                           bigint       [not null, ref: > role.role_id]
+  user_status_id                    bigint       [not null, ref: > status.status_id, note: 'Dominio: user · validado por trigger trg_app_user_status_domain']
+  trial_started_at                  timestamptz
+  trial_ends_at                     timestamptz  [note: '= trial_started_at + app_config[trial_days_default]']
+  current_financial_health_level_id bigint       [ref: > financial_health_level.financial_health_level_id]
+  financial_health_updated_at       timestamptz
+  email_verified_at                 timestamptz
+  accepted_terms_at                 timestamptz
+  deleted_at                        timestamptz  [note: 'Soft delete · nunca DELETE físico']
+  created_at                        timestamptz  [not null, default: `now()`]
+  updated_at                        timestamptz  [not null, default: `now()`]
+}
+
+Table refresh_tokens {
+  id         uuid        [pk, default: `gen_random_uuid()`]
+  user_id    uuid        [not null, ref: > app_user.user_id]
+  token_hash text        [not null, unique, note: 'Hash SHA-256 · nunca el token en claro']
+  expires_at timestamptz [not null, note: 'TTL: 30 días']
+  revoked_at timestamptz [note: 'NULL = sesión activa · rotación en cada refresh']
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table password_reset_tokens {
+  id         uuid        [pk, default: `gen_random_uuid()`]
+  user_id    uuid        [not null, ref: > app_user.user_id]
+  token_hash text        [not null, unique, note: 'Hash del token del link de reset']
+  expires_at timestamptz [not null, note: 'TTL: 1 hora']
+  used_at    timestamptz [note: 'NULL = no usado · un solo uso']
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table email_verification_tokens {
+  id         uuid        [pk, default: `gen_random_uuid()`]
+  user_id    uuid        [not null, ref: > app_user.user_id]
+  email      text        [not null, note: 'Email a verificar']
+  token_hash text        [not null, unique, note: 'Hash del código OTP de 6 dígitos']
+  expires_at timestamptz [not null, note: 'TTL: 15 minutos']
+  attempts   smallint    [not null, default: 0, note: 'Máx 5 intentos · luego se invalida']
+  used_at    timestamptz [note: 'NULL = código aún válido']
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_id) [name: 'idx_evt_user_id']
+  }
+}
+
+Table biometric_preferences {
+  user_id    uuid        [pk, ref: - app_user.user_id, note: '1:1 con app_user']
+  enabled    boolean     [not null, default: false]
+  method     text        [note: 'face_id | touch_id | fingerprint']
+  device_id  text
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table user_onboarding_state {
+  user_id                     uuid        [pk, ref: - app_user.user_id, note: '1:1 con app_user']
+  onboarding_status           varchar(20) [not null, default: 'not_started', note: 'not_started | in_progress | completed']
+  current_step                varchar(80) [note: 'email_verification | profile | goals | import | biometric']
+  resume_surface              varchar(80) [note: 'home | onboarding']
+  resume_context              jsonb
+  financial_profile_completed boolean     [not null, default: false]
+  goals_set                   boolean     [not null, default: false]
+  import_attempted            boolean     [not null, default: false]
+  biometric_prompted          boolean     [not null, default: false]
+  min_doc_threshold_met       boolean     [not null, default: false]
+  last_checkpoint_at          timestamptz [not null, default: `now()`]
+  completed_at                timestamptz
+  created_at                  timestamptz [not null, default: `now()`]
+  updated_at                  timestamptz [not null, default: `now()`]
+}

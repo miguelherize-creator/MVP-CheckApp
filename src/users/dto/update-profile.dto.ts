@@ -3,25 +3,19 @@ import {
   IsEmail,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 
 export class UpdateProfileDto {
-  @ApiPropertyOptional({ example: 'Ana' })
+  @ApiPropertyOptional({ example: 'Ana Pérez' })
   @IsOptional()
   @IsString()
   @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
-  @MaxLength(100)
-  firstName?: string;
-
-  @ApiPropertyOptional({ example: 'Pérez' })
-  @IsOptional()
-  @IsString()
-  @MinLength(2, { message: 'El apellido debe tener al menos 2 caracteres' })
-  @MaxLength(100)
-  lastName?: string;
+  @MaxLength(200)
+  fullName?: string;
 
   @ApiPropertyOptional({
     description: 'Handle/alias opcional. Solo letras, números, puntos, guiones y guiones bajos',
@@ -41,4 +35,10 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsEmail({}, { message: 'Correo no válido' })
   email?: string;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.jpg' })
+  @IsOptional()
+  @IsUrl({}, { message: 'URL de avatar inválida' })
+  @MaxLength(500)
+  avatarUrl?: string;
 }

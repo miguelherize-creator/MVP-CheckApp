@@ -5,6 +5,14 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { HealthController } from './health.controller';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { Country } from './catalog/entities/country.entity';
+import { Currency } from './catalog/entities/currency.entity';
+import { DocumentType } from './catalog/entities/document-type.entity';
+import { StatusDomain } from './catalog/entities/status-domain.entity';
+import { Status } from './catalog/entities/status.entity';
+import { Role } from './catalog/entities/role.entity';
+import { FinancialHealthLevel } from './catalog/entities/financial-health-level.entity';
 import { User } from './users/entities/user.entity';
 import { RefreshToken } from './auth/entities/refresh-token.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
@@ -82,6 +90,13 @@ import { PaymentOrder } from './subscriptions/entities/payment-order.entity';
           type: 'postgres',
           url: config.getOrThrow<string>('DATABASE_URL'),
           entities: [
+            Country,
+            Currency,
+            DocumentType,
+            StatusDomain,
+            Status,
+            Role,
+            FinancialHealthLevel,
             User,
             RefreshToken,
             PasswordResetToken,
@@ -137,6 +152,7 @@ import { PaymentOrder } from './subscriptions/entities/payment-order.entity';
     }),
     UsersModule,
     AuthModule,
+    CatalogModule,
     CashflowModule,
     SubscriptionsModule,
   ],

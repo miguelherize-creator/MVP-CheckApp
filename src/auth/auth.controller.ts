@@ -105,7 +105,7 @@ export class AuthController {
       return {
         url: this.buildRedirectUrl(successBase, {
           status: 'success',
-          name: result.user?.firstName ?? '',
+          name: result.user?.fullName ?? '',
         }),
       };
     } catch (err: unknown) {

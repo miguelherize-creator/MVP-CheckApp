@@ -35,6 +35,9 @@ export class EmailVerificationToken {
   @Column({ name: 'used_at', type: 'timestamptz', nullable: true })
   usedAt!: Date | null;
 
+  @Column({ type: 'smallint', default: 0 })
+  attempts!: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

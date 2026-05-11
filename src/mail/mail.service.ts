@@ -68,15 +68,14 @@ export class MailService {
   // ─── Verificación de email (magic link) ────────────────────────────────────
   async sendEmailVerificationLink(
     to: string,
-    firstName: string,
-    lastName: string,
+    fullName: string,
     verifyUrl: string,
   ): Promise<void> {
-    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'usuario';
-    const subject  = `${firstName || 'Hola'}, confirma tu cuenta en Walvy`;
+    const displayName = fullName.trim() || 'usuario';
+    const subject  = `${displayName}, confirma tu cuenta en Walvy`;
 
     const html = emailVerificationHtml({
-      fullName,
+      fullName: displayName,
       verifyUrl,
       mascotUrl:  this.mascotUrl,
       logoUrl:    this.logoUrl,

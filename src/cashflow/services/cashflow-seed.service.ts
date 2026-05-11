@@ -116,9 +116,9 @@ export class CashflowSeedService implements OnModuleInit {
     }
     const raw = fs.readFileSync(filePath, 'utf8');
     const rows = JSON.parse(raw) as FundingSeedRow[];
-    const users = await this.userRepo.find({ select: ['id'] });
+    const users = await this.userRepo.find({ select: ['userId'] });
     for (const u of users) {
-      await this.ensureFundingSourcesForUser(u.id, rows);
+      await this.ensureFundingSourcesForUser(u.userId, rows);
     }
   }
 

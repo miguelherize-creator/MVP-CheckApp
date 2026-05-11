@@ -26,8 +26,8 @@ export class UserFinancialProfile {
   @Column({ name: 'estimated_payment_capacity', type: 'decimal', precision: 19, scale: 4, nullable: true })
   estimatedPaymentCapacity!: string | null;
 
-  @Column({ type: 'varchar', default: 'CLP' })
-  currency!: string;
+  @Column({ name: 'currency_id', type: 'bigint', nullable: true })
+  currencyId!: number | null;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;

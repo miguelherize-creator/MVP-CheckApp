@@ -52,40 +52,39 @@ export class AuthService {
     if (!dto.acceptTerms) {
       throw new BadRequestException('Debes aceptar los términos para registrarte');
     }
-    if (!dto.acceptPrivacy) {
-      throw new BadRequestException('Debes aceptar la política de privacidad para registrarte');
-    }
     if (dto.password !== dto.confirmPassword) {
       throw new BadRequestException('Las contraseñas no coinciden');
     }
 
     const user = await this.usersService.create({
-      firstName: dto.firstName,
-      lastName: dto.lastName,
+      fullName: dto.fullName,
       email: dto.email,
-      rut: dto.rut,
+      documentNumber: dto.documentNumber ?? null,
       password: dto.password,
       acceptedTermsAt: new Date(),
-      acceptedPrivacyAt: new Date(),
     });
 
-    await this.cashflowSeed.ensureFundingSourcesForUser(user.id);
+    await this.cashflowSeed.ensureFundingSourcesForUser(user.userId);
 
     await this.onboardingRepo.save(
       this.onboardingRepo.create({
-        userId: user.id,
+        userId: user.userId,
+        onboardingStatus: 'in_progress',
         currentStep: 'email_verification',
         financialProfileCompleted: false,
         goalsSet: false,
         importAttempted: false,
         biometricPrompted: false,
+        minDocThresholdMet: false,
         completedAt: null,
+        resumeSurface: null,
+        resumeContext: null,
       }),
     );
 
     await this.biometricRepo.save(
       this.biometricRepo.create({
-        userId: user.id,
+        userId: user.userId,
         enabled: false,
         method: null,
         deviceId: null,
@@ -93,12 +92,11 @@ export class AuthService {
     );
 
     // Token en BD ya; SMTP puede tardar — no bloquear la respuesta HTTP del registro
-    const mailPayload = await this.buildEmailVerificationMailPayload(user.id, user.email);
+    const mailPayload = await this.buildEmailVerificationMailPayload(user.userId, user.email!);
     void this.mailService
       .sendEmailVerificationLink(
         mailPayload.normalizedEmail,
-        mailPayload.firstName,
-        mailPayload.lastName,
+        mailPayload.fullName,
         mailPayload.verifyUrl,
       )
       .catch((err: unknown) => {
@@ -118,7 +116,7 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.usersService.findByIdentifierWithPassword(dto.identifier);
-    if (!user) {
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
     const ok = await this.usersService.validatePassword(dto.password, user.passwordHash);
@@ -172,7 +170,7 @@ export class AuthService {
       return generic;
     }
 
-    await this.resetRepo.delete({ userId: user.id });
+    await this.resetRepo.delete({ userId: user.userId });
 
     const plain = generateOpaqueToken();
     const tokenHash = hashOpaqueToken(plain);
@@ -181,14 +179,14 @@ export class AuthService {
 
     await this.resetRepo.save(
       this.resetRepo.create({
-        userId: user.id,
+        userId: user.userId,
         tokenHash,
         expiresAt,
         usedAt: null,
       }),
     );
 
-    await this.mailService.sendPasswordResetEmail(user.email, plain);
+    await this.mailService.sendPasswordResetEmail(user.email!, plain);
     return generic;
   }
 
@@ -210,7 +208,7 @@ export class AuthService {
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
     const user = await this.usersService.findByIdWithPassword(userId);
-    if (!user) {
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException();
     }
     const ok = await this.usersService.validatePassword(currentPassword, user.passwordHash);
@@ -222,18 +220,11 @@ export class AuthService {
     return { message: 'Contraseña actualizada correctamente' };
   }
 
-  /**
-   * Genera un token opaco URL-safe (32 bytes hex), lo almacena hasheado y envía
-   * un email con el enlace de confirmación (magic link).
-   * Invalida tokens previos del mismo usuario.
-   * Si el email difiere del almacenado (cambio de correo), lo marca como pendiente.
-   */
   async requestEmailVerification(userId: string, email: string) {
     const p = await this.buildEmailVerificationMailPayload(userId, email);
     await this.mailService.sendEmailVerificationLink(
       p.normalizedEmail,
-      p.firstName,
-      p.lastName,
+      p.fullName,
       p.verifyUrl,
     );
     return { message: `Enlace de verificación enviado a ${p.normalizedEmail}` };
@@ -247,14 +238,13 @@ export class AuthService {
     email: string,
   ): Promise<{
     normalizedEmail: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     verifyUrl: string;
   }> {
     const normalizedEmail = email.trim().toLowerCase();
 
     const existing = await this.usersService.findByEmail(normalizedEmail);
-    if (existing && existing.id !== userId) {
+    if (existing && existing.userId !== userId) {
       throw new ConflictException('Este correo ya está registrado por otra cuenta');
     }
 
@@ -294,19 +284,12 @@ export class AuthService {
       ? template.replace('{{token}}', encodeURIComponent(plain))
       : `${template}${template.includes('?') ? '&' : '?'}token=${encodeURIComponent(plain)}`;
 
-    const firstName = user?.firstName ?? '';
-    const lastName = user?.lastName ?? '';
+    const fullName = user?.fullName ?? '';
 
-    return { normalizedEmail, firstName, lastName, verifyUrl };
+    return { normalizedEmail, fullName, verifyUrl };
   }
 
-  /**
-   * Confirma el email a través del token del magic link (endpoint público, sin JWT).
-   * El token viene directamente desde el enlace del correo.
-   *
-   * Idempotente: si el enlace ya se consumió pero el usuario ya quedó verificado
-   * (p. ej. antivirus del correo abrió el link antes), devuelve éxito de nuevo.
-   */
+  // Idempotente: si el antivirus del correo abrió el link antes que el usuario, devuelve éxito.
   async confirmEmailVerificationByToken(plainToken: string) {
     const normalizedPlain = this.normalizeMagicLinkToken(plainToken);
     const tokenHash = hashOpaqueToken(normalizedPlain);
@@ -419,8 +402,8 @@ export class AuthService {
 
   private async issueTokens(user: User) {
     const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
+      sub: user.userId,
+      email: user.email!,
     };
     const accessToken = await this.jwtService.signAsync(payload);
     const refreshPlain = generateOpaqueToken();
@@ -429,7 +412,7 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     await this.refreshRepo.save(
       this.refreshRepo.create({
-        userId: user.id,
+        userId: user.userId,
         tokenHash: refreshHash,
         expiresAt,
         revokedAt: null,
