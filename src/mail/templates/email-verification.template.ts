@@ -4,14 +4,21 @@ const { color: C, font: F } = EMAIL_TOKENS;
 
 export interface EmailVerificationVars {
   fullName: string;
-  verifyUrl: string;
+  code: string;
+  expiresMinutes: number;
   mascotUrl: string;
   logoUrl: string;
-  /** Watermark (Supabase). Si falta, `base` usa SVG embebido `data:`. */
   isotypeUrl?: string;
 }
 
 export function emailVerificationHtml(v: EmailVerificationVars): string {
+  const digits = v.code.split('').map(
+    (d) => `<span style="display:inline-block;width:44px;height:56px;line-height:56px;
+                         margin:0 4px;border-radius:12px;background:#F5F5F7;
+                         font-size:32px;font-weight:700;color:${C.heading};
+                         text-align:center;font-family:${F};">${d}</span>`,
+  ).join('');
+
   const contentRows = `<tr>
               <td style="padding-bottom:24px;text-align:center;">
                 <p style="margin:0;font-size:24px;font-weight:700;color:${C.heading};line-height:32px;font-family:${F};">
@@ -25,45 +32,24 @@ export function emailVerificationHtml(v: EmailVerificationVars): string {
 
             <tr>
               <td style="padding-bottom:32px;text-align:center;">
-                <p class="body-text" style="margin:0;font-size:16px;font-weight:600;color:${C.body};line-height:26px;font-family:${F};">
-                  Estamos listos para ayudarte a organizar tus deudas y que tu sueldo rinda más. Pero primero confirmemos tu cuenta.
+                <p style="margin:0;font-size:16px;font-weight:600;color:${C.body};line-height:26px;font-family:${F};">
+                  Ingresa este código en la app para confirmar tu cuenta.
+                  Expira en <strong>${v.expiresMinutes} minutos</strong>.
                 </p>
               </td>
             </tr>
 
             <tr>
               <td align="center" style="padding-bottom:32px;">
-                <!--[if mso]>
-                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
-                             xmlns:w="urn:schemas-microsoft-com:office:word"
-                             href="${v.verifyUrl}" style="height:48px;width:260px;v-text-anchor:middle;"
-                             arcsize="50%" fillcolor="${C.primary}" strokecolor="${C.primary}">
-                  <w:anchorlock/>
-                  <center style="color:${C.textOnDark};font-size:16px;font-weight:700;">
-                    Confirmar mi cuenta
-                  </center>
-                </v:roundrect>
-                <![endif]-->
-                <!--[if !mso]><!-->
-                <a class="cta-btn" href="${v.verifyUrl}"
-                   style="display:inline-block;background-color:${C.primary};color:${C.textOnDark};font-family:${F};
-                          font-size:16px;font-weight:700;text-decoration:none;border-radius:100px;padding:14px 48px;
-                          min-width:220px;text-align:center;mso-hide:all;">
-                  Confirmar mi cuenta
-                </a>
-                <!--<![endif]-->
+                <div style="display:inline-block;">${digits}</div>
               </td>
             </tr>
 
             <tr>
               <td style="padding-bottom:40px;text-align:center;">
-                <p style="margin:0 0 12px;font-size:14px;color:${C.muted};font-weight:600;line-height:20px;font-family:${F};">
-                  Si lo prefieres, copia y pega este enlace en tu navegador
+                <p style="margin:0;font-size:13px;color:${C.muted};line-height:20px;font-family:${F};">
+                  Si no creaste una cuenta en Walvy, ignora este correo.
                 </p>
-                <a class="alt-link" href="${v.verifyUrl}"
-                   style="font-size:13px;color:${C.link};text-decoration:underline;word-break:break-all;line-height:20px;font-family:${F};">
-                  ${v.verifyUrl}
-                </a>
               </td>
             </tr>`;
 

@@ -17,6 +17,10 @@ export class DocumentType {
   @Column({ name: 'subject_scope', type: 'varchar', length: 10, default: 'person' })
   subjectScope!: string;
 
+  /** Regex de validación del número de documento. NULL = sin validación específica. */
+  @Column({ name: 'validation_regex', type: 'varchar', length: 200, nullable: true })
+  validationRegex!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

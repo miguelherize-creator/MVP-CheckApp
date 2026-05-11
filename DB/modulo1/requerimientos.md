@@ -34,9 +34,9 @@
 | **ID** | RF-01 |
 | **Nombre** | Registro de usuario nuevo |
 | **Descripción** | El sistema debe permitir registrar un nuevo usuario con email y contraseña. |
-| **Inputs** | email, password, country_id, accepted_terms_at |
-| **Reglas** | - Password mínimo 8 caracteres, mayúscula, número, carácter especial. - Email único en el sistema. - `accepted_terms_at` debe registrarse en el momento del registro. - Se crea automáticamente `user_onboarding_state` con `status = not_started`. - Se crea automáticamente `user_gamification_stats` con `total_points = 0`. |
-| **Output** | `app_user` creado con `user_status_id = active`, `role_id = user`, access token + refresh token. |
+| **Inputs** | `email`, `password`, `documentNumber` (RUT — MVP ), `acceptTerms`, `acceptPrivacy`. `country_id` y `default_currency_id` los resuelve el backend (default Chile/CLP para MVP). |
+| **Reglas** | - Password mínimo 8 caracteres, al menos una mayúscula y un número. - Email único en el sistema. - `accepted_terms_at` y `accepted_privacy_at` se registran en el momento del registro. - Se crea automáticamente `user_onboarding_state` con `onboarding_status = not_started`, `current_step = email_verification`. - Al confirmar el email: `onboarding_status` pasa a `in_progress`, `current_step` a `profile`. - Se crea automáticamente `user_gamification_stats` con `total_points = 0, level = 1`. - `fullName` no se recoge en el registro; se completa en el paso `profile` del onboarding. |
+| **Output** | `app_user` creado con `user_status_id = pending_verification` (pasa a `active` al confirmar email), `role_id = user`, access token + refresh token, `nextStep = "email_verification"`. |
 
 ---
 
@@ -170,7 +170,7 @@
 ## Requerimientos No Funcionales
 
 ### RNF-01 — Seguridad de contraseñas
-Las contraseñas deben almacenarse con bcrypt (cost factor ≥ 12). Nunca en texto plano ni en formato reversible.
+Las contraseñas deben almacenarse con bcrypt (cost factor ≥ 12). Nunca en texto plano ni en formato reversible. Política de complejidad: mínimo 8 caracteres, al menos una mayúscula y un número.
 
 ### RNF-02 — Seguridad de tokens
 Los refresh tokens se almacenan como hash SHA-256. El token real solo viaja en la respuesta HTTP (no se persiste).

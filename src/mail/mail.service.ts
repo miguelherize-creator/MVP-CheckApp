@@ -65,25 +65,27 @@ export class MailService {
     }
   }
 
-  // ─── Verificación de email (magic link) ────────────────────────────────────
-  async sendEmailVerificationLink(
+  // ─── Verificación de email (código OTP) ────────────────────────────────────
+  async sendEmailVerificationCode(
     to: string,
     fullName: string,
-    verifyUrl: string,
+    code: string,
   ): Promise<void> {
-    const displayName = fullName.trim() || 'usuario';
-    const subject  = `${displayName}, confirma tu cuenta en Walvy`;
+    const displayName    = fullName.trim() || 'usuario';
+    const expiresMinutes = this.config.get<number>('EMAIL_VERIFICATION_EXPIRES_MINUTES', 15);
+    const subject        = `${displayName}, confirma tu cuenta en Walvy`;
 
     const html = emailVerificationHtml({
       fullName: displayName,
-      verifyUrl,
+      code,
+      expiresMinutes,
       mascotUrl:  this.mascotUrl,
       logoUrl:    this.logoUrl,
       isotypeUrl: this.isotypeUrl,
     });
 
     await this.send(to, subject, html);
-    this.logger.log(`Enlace de verificación enviado a ${to}`);
+    this.logger.log(`Código de verificación enviado a ${to}`);
   }
 
   // ─── Recuperación de contraseña ─────────────────────────────────────────────

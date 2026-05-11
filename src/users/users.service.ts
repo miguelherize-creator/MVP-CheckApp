@@ -21,11 +21,14 @@ export class UsersService {
   ) {}
 
   async create(data: {
-    fullName: string;
     email: string;
     password: string;
-    documentNumber?: string | null;
+    documentNumber: string;
+    documentTypeId: number;
     acceptedTermsAt?: Date | null;
+    acceptedPrivacyAt?: Date | null;
+    fullName?: string | null;
+    trialDays?: number;
   }): Promise<User> {
     const normalizedEmail = data.email.trim().toLowerCase();
 
@@ -37,17 +40,24 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
     const defaults = this.catalogSeed.getDefaults();
 
+    const now = new Date();
+    const trialEndsAt = data.trialDays
+      ? new Date(now.getTime() + data.trialDays * 24 * 60 * 60 * 1000)
+      : null;
+
     const user = this.usersRepo.create({
       email: normalizedEmail,
       passwordHash,
-      fullName: data.fullName.trim(),
-      documentNumber: data.documentNumber?.trim() ?? null,
+      fullName: data.fullName?.trim() ?? null,
+      documentTypeId: data.documentTypeId,
+      documentNumber: data.documentNumber.trim(),
       identifierType: 'email',
       countryId: defaults.countryId,
       defaultCurrencyId: defaults.currencyId,
       roleId: defaults.roleId,
-      userStatusId: defaults.userStatusId,
+      userStatusId: defaults.pendingVerificationStatusId,
       acceptedTermsAt: data.acceptedTermsAt ?? null,
+      acceptedPrivacyAt: data.acceptedPrivacyAt ?? null,
       emailVerifiedAt: null,
       username: null,
       avatarUrl: null,
@@ -55,8 +65,8 @@ export class UsersService {
       notificationEmailVerifiedAt: null,
       authProvider: null,
       authProviderUserId: null,
-      trialStartedAt: null,
-      trialEndsAt: null,
+      trialStartedAt: trialEndsAt ? now : null,
+      trialEndsAt,
       currentFinancialHealthLevelId: null,
       financialHealthUpdatedAt: null,
     });
@@ -128,6 +138,7 @@ export class UsersService {
     }
     user.email = email.toLowerCase();
     user.emailVerifiedAt = new Date();
+    user.userStatusId = this.catalogSeed.getDefaults().activeStatusId;
     return this.usersRepo.save(user);
   }
 
@@ -176,12 +187,7 @@ export class UsersService {
       email: user.email,
       username: user.username,
       avatarUrl: user.avatarUrl,
-      documentNumber: user.documentNumber,
-      emailVerifiedAt: user.emailVerifiedAt,
       emailVerified: !!user.emailVerifiedAt,
-      countryId: user.countryId,
-      defaultCurrencyId: user.defaultCurrencyId,
-      trialStartedAt: user.trialStartedAt,
       trialEndsAt: user.trialEndsAt,
       createdAt: user.createdAt,
     };

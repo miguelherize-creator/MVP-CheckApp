@@ -78,6 +78,9 @@ export class User {
   @Column({ name: 'accepted_terms_at', type: 'timestamptz', nullable: true })
   acceptedTermsAt!: Date | null;
 
+  @Column({ name: 'accepted_privacy_at', type: 'timestamptz', nullable: true })
+  acceptedPrivacyAt!: Date | null;
+
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 

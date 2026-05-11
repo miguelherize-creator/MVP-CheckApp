@@ -12,7 +12,11 @@ export interface CatalogDefaults {
   countryId: number;
   currencyId: number;
   roleId: number;
-  userStatusId: number;
+  activeStatusId: number;
+  pendingVerificationStatusId: number;
+  rutDocumentTypeId: number;
+  rutDocumentTypeCode: string;
+  rutValidationRegex: string;
 }
 
 @Injectable()
@@ -36,10 +40,12 @@ export class CatalogSeedService implements OnModuleInit {
   async seed(): Promise<void> {
     this.logger.log('Seeding catalog tables...');
 
+    const RUT_REGEX = '^\\d{7,8}-[\\dkK]$';
     const country = await this.upsertCountry('CL', 'Chile');
     const currency = await this.upsertCurrency('CLP', 'Peso chileno', 0);
-    await this.upsertDocumentType('RUT', 'RUT chileno', country.countryId);
+    const rutDocumentType = await this.upsertDocumentType('RUT', 'RUT chileno', country.countryId, RUT_REGEX);
     const userDomain = await this.upsertStatusDomain('user', 'Usuario');
+    const pendingVerificationStatus = await this.upsertStatus(userDomain.statusDomainId, 'pending_verification', 'Pendiente de verificación');
     const activeStatus = await this.upsertStatus(userDomain.statusDomainId, 'active', 'Activo');
     await this.upsertStatus(userDomain.statusDomainId, 'inactive', 'Inactivo');
     await this.upsertStatus(userDomain.statusDomainId, 'suspended', 'Suspendido');
@@ -63,7 +69,11 @@ export class CatalogSeedService implements OnModuleInit {
       countryId: Number(country.countryId),
       currencyId: Number(currency.currencyId),
       roleId: Number(userRole.roleId),
-      userStatusId: Number(activeStatus.statusId),
+      activeStatusId: Number(activeStatus.statusId),
+      pendingVerificationStatusId: Number(pendingVerificationStatus.statusId),
+      rutDocumentTypeId: Number(rutDocumentType.documentTypeId),
+      rutDocumentTypeCode: rutDocumentType.code,
+      rutValidationRegex: RUT_REGEX,
     };
 
     this.logger.log('Catalog seed complete');
@@ -92,12 +102,20 @@ export class CatalogSeedService implements OnModuleInit {
     return entity;
   }
 
-  private async upsertDocumentType(code: string, name: string, countryId: number): Promise<DocumentType> {
+  private async upsertDocumentType(
+    code: string,
+    name: string,
+    countryId: number,
+    validationRegex: string | null = null,
+  ): Promise<DocumentType> {
     let entity = await this.documentTypeRepo.findOne({ where: { code } });
     if (!entity) {
       entity = await this.documentTypeRepo.save(
-        this.documentTypeRepo.create({ code, name, countryId, subjectScope: 'person' }),
+        this.documentTypeRepo.create({ code, name, countryId, subjectScope: 'person', validationRegex }),
       );
+    } else if (entity.validationRegex !== validationRegex) {
+      entity.validationRegex = validationRegex;
+      entity = await this.documentTypeRepo.save(entity);
     }
     return entity;
   }

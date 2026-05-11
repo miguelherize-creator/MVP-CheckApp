@@ -274,6 +274,7 @@ Tabla central de usuarios. Combina autenticación local (Walvy) con capacidades 
 | `financial_health_updated_at` | TIMESTAMPTZ NULL | |
 | `email_verified_at` | TIMESTAMPTZ NULL | |
 | `accepted_terms_at` | TIMESTAMPTZ NULL | |
+| `accepted_privacy_at` | TIMESTAMPTZ NULL | Registrada en el momento del registro junto con `accepted_terms_at` |
 | `deleted_at` | TIMESTAMPTZ NULL | Soft delete |
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | Auto-set por trigger |

@@ -20,7 +20,7 @@
 ### Flujo principal
 
 ```
-1. Usuario ingresa email, contraseña, país y acepta términos.
+1. Usuario ingresa email, número de documento (RUT), contraseña, acepta términos y política de privacidad.
 2. Sistema valida:
    a. Email tiene formato válido.
    b. Contraseña cumple política (8+ chars, mayúscula, número, especial).
@@ -30,9 +30,13 @@
    - user_status_id = pending_verification
    - role_id = user
    - accepted_terms_at = now()
+   - accepted_privacy_at = now()
+   - document_number = RUT ingresado
+   - country_id / default_currency_id = Chile/CLP (resuelto por el backend en MVP)
    - trial_started_at = now()
    - trial_ends_at = now() + app_config['trial_days_default']
-5. Sistema crea user_onboarding_state (onboarding_status = not_started).
+   - full_name = NULL (se completa en el paso profile del onboarding)
+5. Sistema crea user_onboarding_state (onboarding_status = not_started, current_step = email_verification).
 6. Sistema crea user_gamification_stats (total_points = 0, level = 1).
 7. Sistema genera email_verification_token y envía email de verificación.
 8. Sistema retorna access_token + refresh_token.

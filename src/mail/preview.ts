@@ -28,8 +28,7 @@ const OUTPUT_DIR = join(__dirname, 'previews');
 
 const SAMPLE = {
   fullName: 'Juan Pérez',
-  verifyUrl:
-    'http://localhost:3000/auth/email-verification/confirm/PREVIEW-TOKEN-123',
+  code: '482910',
   resetUrl: 'http://localhost:8081/reset-password?token=PREVIEW-TOKEN-123',
   expiresMinutes: 60,
   mascotUrl:
@@ -66,10 +65,11 @@ function main(): void {
   write(
     'email-verification.html',
     emailVerificationHtml({
-      fullName:   SAMPLE.fullName,
-      verifyUrl:  SAMPLE.verifyUrl,
-      mascotUrl:  SAMPLE.mascotUrl,
-      logoUrl:    SAMPLE.logoUrl,
+      fullName:       SAMPLE.fullName,
+      code:           SAMPLE.code,
+      expiresMinutes: SAMPLE.expiresMinutes,
+      mascotUrl:      SAMPLE.mascotUrl,
+      logoUrl:        SAMPLE.logoUrl,
       isotypeUrl,
     }),
   );

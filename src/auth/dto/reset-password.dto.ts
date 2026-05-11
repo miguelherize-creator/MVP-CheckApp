@@ -10,9 +10,8 @@ export class ResetPasswordDto {
   @ApiProperty()
   @IsString()
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/, {
-    message:
-      'La contraseña debe incluir mayúscula, minúscula, número y carácter especial',
+  @Matches(/^(?=.*[A-Z])(?=.*\d)/, {
+    message: 'La contraseña debe incluir al menos una mayúscula y un número',
   })
   newPassword: string;
 }
