@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -140,10 +141,22 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersService.findByIdentifierWithPassword(dto.identifier);
+    const user = await this.usersService.findByEmailWithPassword(dto.email);
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    const defaults = this.catalogSeed.getDefaults();
+    if (user.userStatusId !== defaults.activeStatusId) {
+      if (user.userStatusId === defaults.pendingVerificationStatusId) {
+        throw new UnauthorizedException('Debes verificar tu correo antes de iniciar sesión');
+      }
+      if (user.userStatusId === defaults.suspendedStatusId) {
+        throw new ForbiddenException('Tu cuenta ha sido suspendida. Contacta soporte.');
+      }
+      throw new ForbiddenException('Tu cuenta no está disponible. Contacta soporte.');
+    }
+
     const ok = await this.usersService.validatePassword(dto.password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Credenciales inválidas');
@@ -372,7 +385,7 @@ export class AuthService {
     const accessToken = await this.jwtService.signAsync(payload);
     const refreshPlain = generateOpaqueToken();
     const refreshHash = hashOpaqueToken(refreshPlain);
-    const days = this.config.get<number>('REFRESH_EXPIRES_DAYS', 7);
+    const days = this.config.get<number>('REFRESH_EXPIRES_DAYS', 30);
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     await this.refreshRepo.save(
       this.refreshRepo.create({

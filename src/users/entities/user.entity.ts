@@ -30,7 +30,7 @@ export class User {
   @Column({ name: 'full_name', type: 'varchar', length: 200, nullable: true })
   fullName!: string | null;
 
-  @Column({ type: 'varchar', length: 80, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 80, nullable: true })
   username!: string | null;
 
   @Column({ name: 'avatar_url', type: 'varchar', length: 500, nullable: true })

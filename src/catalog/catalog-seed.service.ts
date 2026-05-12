@@ -14,6 +14,7 @@ export interface CatalogDefaults {
   roleId: number;
   activeStatusId: number;
   pendingVerificationStatusId: number;
+  suspendedStatusId: number;
   rutDocumentTypeId: number;
   rutDocumentTypeCode: string;
   rutValidationRegex: string;
@@ -48,7 +49,7 @@ export class CatalogSeedService implements OnModuleInit {
     const pendingVerificationStatus = await this.upsertStatus(userDomain.statusDomainId, 'pending_verification', 'Pendiente de verificación');
     const activeStatus = await this.upsertStatus(userDomain.statusDomainId, 'active', 'Activo');
     await this.upsertStatus(userDomain.statusDomainId, 'inactive', 'Inactivo');
-    await this.upsertStatus(userDomain.statusDomainId, 'suspended', 'Suspendido');
+    const suspendedStatus = await this.upsertStatus(userDomain.statusDomainId, 'suspended', 'Suspendido');
     await this.upsertStatus(userDomain.statusDomainId, 'deleted', 'Eliminado');
 
     const paymentMethodDomain = await this.upsertStatusDomain('payment_method', 'Método de pago');
@@ -71,6 +72,7 @@ export class CatalogSeedService implements OnModuleInit {
       roleId: Number(userRole.roleId),
       activeStatusId: Number(activeStatus.statusId),
       pendingVerificationStatusId: Number(pendingVerificationStatus.statusId),
+      suspendedStatusId: Number(suspendedStatus.statusId),
       rutDocumentTypeId: Number(rutDocumentType.documentTypeId),
       rutDocumentTypeCode: rutDocumentType.code,
       rutValidationRegex: RUT_REGEX,
