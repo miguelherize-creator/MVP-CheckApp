@@ -96,6 +96,7 @@ export class AuthController {
 
   @Post('email-verification/request')
   @UseGuards(AuthGuard('jwt'))
+  @Throttle({ short: { limit: 3, ttl: 3600000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Solicitar código OTP de verificación de correo',

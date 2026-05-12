@@ -32,7 +32,6 @@ export class MailService {
     }
   }
 
-  // ─── Imágenes del email — configurar en .env ────────────────────────────────
   private get mascotUrl(): string {
     return this.config.get<string>('MAIL_MASCOT_URL', 'https://walvy.app/assets/mascot-email.png');
   }
@@ -50,7 +49,6 @@ export class MailService {
     return this.config.get<string>('MAIL_FROM', 'Walvy <no-reply@walvy.app>');
   }
 
-  // ─── Envío interno ──────────────────────────────────────────────────────────
   private async send(to: string, subject: string, html: string): Promise<void> {
     if (!this.transporter) {
       this.logger.log(`[MAIL-LOG] To: ${to} | Subject: ${subject}\n${html}`);
@@ -65,18 +63,11 @@ export class MailService {
     }
   }
 
-  // ─── Verificación de email (código OTP) ────────────────────────────────────
-  async sendEmailVerificationCode(
-    to: string,
-    fullName: string,
-    code: string,
-  ): Promise<void> {
-    const displayName    = fullName.trim() || 'usuario';
+  async sendEmailVerificationCode(to: string, code: string): Promise<void> {
     const expiresMinutes = this.config.get<number>('EMAIL_VERIFICATION_EXPIRES_MINUTES', 15);
-    const subject        = `${displayName}, confirma tu cuenta en Walvy`;
+    const subject        = 'Confirma tu cuenta en Walvy';
 
     const html = emailVerificationHtml({
-      fullName: displayName,
       code,
       expiresMinutes,
       mascotUrl:  this.mascotUrl,
@@ -88,7 +79,6 @@ export class MailService {
     this.logger.log(`Código de verificación enviado a ${to}`);
   }
 
-  // ─── Recuperación de contraseña ─────────────────────────────────────────────
   async sendPasswordResetEmail(to: string, plainToken: string): Promise<void> {
     const template        = this.config.get<string>('PASSWORD_RESET_URL_TEMPLATE', '');
     const expiresMinutes  = this.config.get<number>('PASSWORD_RESET_EXPIRES_MINUTES', 60);

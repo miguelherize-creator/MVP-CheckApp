@@ -120,11 +120,7 @@ export class AuthService {
     // OTP persisted; SMTP puede tardar — no bloquear la respuesta HTTP del registro
     const otpPayload = await this.buildOtpAndPersist(user.userId, user.email!);
     void this.mailService
-      .sendEmailVerificationCode(
-        otpPayload.normalizedEmail,
-        otpPayload.fullName,
-        otpPayload.code,
-      )
+      .sendEmailVerificationCode(otpPayload.normalizedEmail, otpPayload.code)
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         this.logger.warn(
@@ -146,21 +142,37 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const defaults = this.catalogSeed.getDefaults();
-    if (user.userStatusId !== defaults.activeStatusId) {
-      if (user.userStatusId === defaults.pendingVerificationStatusId) {
-        throw new UnauthorizedException('Debes verificar tu correo antes de iniciar sesión');
-      }
-      if (user.userStatusId === defaults.suspendedStatusId) {
-        throw new ForbiddenException('Tu cuenta ha sido suspendida. Contacta soporte.');
-      }
-      throw new ForbiddenException('Tu cuenta no está disponible. Contacta soporte.');
-    }
-
     const ok = await this.usersService.validatePassword(dto.password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    const defaults = this.catalogSeed.getDefaults();
+
+    if (user.userStatusId === defaults.pendingVerificationStatusId) {
+      // Emitir tokens para que el usuario pueda llamar a /email-verification/resend
+      // y completar la verificación sin quedar atascado.
+      const tokens = await this.issueTokens(user);
+      void this.requestEmailVerification(user.userId, user.email!)
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.warn(`OTP auto-resend on login failed for ${user.email}: ${msg}`);
+        });
+      return {
+        user: this.usersService.toPublic(user),
+        ...tokens,
+        nextStep: 'email_verification',
+      };
+    }
+
+    if (user.userStatusId === defaults.suspendedStatusId) {
+      throw new ForbiddenException('Tu cuenta ha sido suspendida. Contacta soporte.');
+    }
+
+    if (user.userStatusId !== defaults.activeStatusId) {
+      throw new ForbiddenException('Tu cuenta no está disponible. Contacta soporte.');
+    }
+
     const tokens = await this.issueTokens(user);
     return {
       user: this.usersService.toPublic(user),
@@ -260,7 +272,7 @@ export class AuthService {
 
   async requestEmailVerification(userId: string, email: string) {
     const p = await this.buildOtpAndPersist(userId, email);
-    await this.mailService.sendEmailVerificationCode(p.normalizedEmail, p.fullName, p.code);
+    await this.mailService.sendEmailVerificationCode(p.normalizedEmail, p.code);
     return { message: `Código de verificación enviado a ${p.normalizedEmail}` };
   }
 
@@ -268,7 +280,7 @@ export class AuthService {
   private async buildOtpAndPersist(
     userId: string,
     email: string,
-  ): Promise<{ normalizedEmail: string; fullName: string; code: string }> {
+  ): Promise<{ normalizedEmail: string; code: string }> {
     const normalizedEmail = email.trim().toLowerCase();
 
     const existing = await this.usersService.findByEmail(normalizedEmail);
@@ -305,7 +317,7 @@ export class AuthService {
       await this.usersService.setPendingEmail(userId, normalizedEmail);
     }
 
-    return { normalizedEmail, fullName: user?.fullName ?? '', code };
+    return { normalizedEmail, code };
   }
 
   async confirmEmailVerification(userId: string, email: string, code: string) {
