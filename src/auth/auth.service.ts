@@ -21,6 +21,7 @@ import { OnboardingState } from './entities/onboarding-state.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateBiometricDto } from './dto/update-biometric.dto';
+import { UpdateOnboardingStepDto } from './dto/update-onboarding-step.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import {
   generateOpaqueToken,
@@ -218,6 +219,67 @@ export class AuthService {
       await this.refreshRepo.save(row);
     }
     return { ok: true };
+  }
+
+  async logoutAll(userId: string) {
+    await this.revokeAllRefreshForUser(userId);
+    return { ok: true };
+  }
+
+  async getOnboarding(userId: string) {
+    const state = await this.onboardingRepo.findOne({ where: { userId } });
+    if (!state) {
+      throw new NotFoundException('Estado de onboarding no encontrado');
+    }
+    return this.toOnboardingPublic(state);
+  }
+
+  async updateOnboardingStep(userId: string, dto: UpdateOnboardingStepDto) {
+    const state = await this.onboardingRepo.findOne({ where: { userId } });
+    if (!state) {
+      throw new NotFoundException('Estado de onboarding no encontrado');
+    }
+
+    if (dto.currentStep !== undefined)              state.currentStep              = dto.currentStep;
+    if (dto.resumeSurface !== undefined)            state.resumeSurface            = dto.resumeSurface;
+    if (dto.resumeContext !== undefined)            state.resumeContext            = dto.resumeContext;
+    if (dto.financialProfileCompleted !== undefined) state.financialProfileCompleted = dto.financialProfileCompleted;
+    if (dto.goalsSet !== undefined)                 state.goalsSet                 = dto.goalsSet;
+    if (dto.importAttempted !== undefined)          state.importAttempted          = dto.importAttempted;
+    if (dto.biometricPrompted !== undefined)        state.biometricPrompted        = dto.biometricPrompted;
+    if (dto.minDocThresholdMet !== undefined)       state.minDocThresholdMet       = dto.minDocThresholdMet;
+
+    const allDone =
+      state.financialProfileCompleted &&
+      state.goalsSet &&
+      state.importAttempted &&
+      state.biometricPrompted &&
+      state.minDocThresholdMet;
+
+    if (allDone && state.onboardingStatus !== 'completed') {
+      state.onboardingStatus = 'completed';
+      state.completedAt      = new Date();
+      state.resumeSurface    = 'home';
+      state.currentStep      = null;
+    }
+
+    const saved = await this.onboardingRepo.save(state);
+    return this.toOnboardingPublic(saved);
+  }
+
+  private toOnboardingPublic(state: OnboardingState) {
+    return {
+      onboardingStatus:          state.onboardingStatus,
+      currentStep:               state.currentStep,
+      resumeSurface:             state.resumeSurface,
+      resumeContext:             state.resumeContext,
+      financialProfileCompleted: state.financialProfileCompleted,
+      goalsSet:                  state.goalsSet,
+      importAttempted:           state.importAttempted,
+      biometricPrompted:         state.biometricPrompted,
+      minDocThresholdMet:        state.minDocThresholdMet,
+      completedAt:               state.completedAt,
+    };
   }
 
   async forgotPassword(email: string) {
