@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -18,6 +20,8 @@ import { BiometricPreferences } from './entities/biometric-preferences.entity';
 import { OnboardingState } from './entities/onboarding-state.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateBiometricDto } from './dto/update-biometric.dto';
+import { UpdateOnboardingStepDto } from './dto/update-onboarding-step.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import {
   generateOpaqueToken,
@@ -119,11 +123,7 @@ export class AuthService {
     // OTP persisted; SMTP puede tardar — no bloquear la respuesta HTTP del registro
     const otpPayload = await this.buildOtpAndPersist(user.userId, user.email!);
     void this.mailService
-      .sendEmailVerificationCode(
-        otpPayload.normalizedEmail,
-        otpPayload.fullName,
-        otpPayload.code,
-      )
+      .sendEmailVerificationCode(otpPayload.normalizedEmail, otpPayload.code)
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         this.logger.warn(
@@ -140,14 +140,42 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersService.findByIdentifierWithPassword(dto.identifier);
+    const user = await this.usersService.findByEmailWithPassword(dto.email);
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
     const ok = await this.usersService.validatePassword(dto.password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    const defaults = this.catalogSeed.getDefaults();
+
+    if (user.userStatusId === defaults.pendingVerificationStatusId) {
+      // Emitir tokens para que el usuario pueda llamar a /email-verification/resend
+      // y completar la verificación sin quedar atascado.
+      const tokens = await this.issueTokens(user);
+      void this.requestEmailVerification(user.userId, user.email!)
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.warn(`OTP auto-resend on login failed for ${user.email}: ${msg}`);
+        });
+      return {
+        user: this.usersService.toPublic(user),
+        ...tokens,
+        nextStep: 'email_verification',
+      };
+    }
+
+    if (user.userStatusId === defaults.suspendedStatusId) {
+      throw new ForbiddenException('Tu cuenta ha sido suspendida. Contacta soporte.');
+    }
+
+    if (user.userStatusId !== defaults.activeStatusId) {
+      throw new ForbiddenException('Tu cuenta no está disponible. Contacta soporte.');
+    }
+
     const tokens = await this.issueTokens(user);
     return {
       user: this.usersService.toPublic(user),
@@ -157,17 +185,27 @@ export class AuthService {
 
   async refresh(refreshTokenPlain: string) {
     const hash = hashOpaqueToken(refreshTokenPlain);
-    const row = await this.refreshRepo.findOne({
-      where: { tokenHash: hash },
-      relations: ['user'],
-    });
-    if (!row || row.revokedAt || row.expiresAt.getTime() < Date.now()) {
+    const row = await this.refreshRepo.findOne({ where: { tokenHash: hash } });
+
+    if (!row) {
       throw new UnauthorizedException('Sesión inválida o expirada');
     }
+
+    // Token ya revocado → posible replay attack; cerrar todas las sesiones del usuario
+    if (row.revokedAt) {
+      await this.revokeAllRefreshForUser(row.userId);
+      throw new UnauthorizedException('Sesión inválida o expirada');
+    }
+
+    if (row.expiresAt.getTime() < Date.now()) {
+      throw new UnauthorizedException('Sesión inválida o expirada');
+    }
+
     const user = await this.usersService.findById(row.userId);
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
+
     row.revokedAt = new Date();
     await this.refreshRepo.save(row);
     return this.issueTokens(user);
@@ -181,6 +219,67 @@ export class AuthService {
       await this.refreshRepo.save(row);
     }
     return { ok: true };
+  }
+
+  async logoutAll(userId: string) {
+    await this.revokeAllRefreshForUser(userId);
+    return { ok: true };
+  }
+
+  async getOnboarding(userId: string) {
+    const state = await this.onboardingRepo.findOne({ where: { userId } });
+    if (!state) {
+      throw new NotFoundException('Estado de onboarding no encontrado');
+    }
+    return this.toOnboardingPublic(state);
+  }
+
+  async updateOnboardingStep(userId: string, dto: UpdateOnboardingStepDto) {
+    const state = await this.onboardingRepo.findOne({ where: { userId } });
+    if (!state) {
+      throw new NotFoundException('Estado de onboarding no encontrado');
+    }
+
+    if (dto.currentStep !== undefined)              state.currentStep              = dto.currentStep;
+    if (dto.resumeSurface !== undefined)            state.resumeSurface            = dto.resumeSurface;
+    if (dto.resumeContext !== undefined)            state.resumeContext            = dto.resumeContext;
+    if (dto.financialProfileCompleted !== undefined) state.financialProfileCompleted = dto.financialProfileCompleted;
+    if (dto.goalsSet !== undefined)                 state.goalsSet                 = dto.goalsSet;
+    if (dto.importAttempted !== undefined)          state.importAttempted          = dto.importAttempted;
+    if (dto.biometricPrompted !== undefined)        state.biometricPrompted        = dto.biometricPrompted;
+    if (dto.minDocThresholdMet !== undefined)       state.minDocThresholdMet       = dto.minDocThresholdMet;
+
+    const allDone =
+      state.financialProfileCompleted &&
+      state.goalsSet &&
+      state.importAttempted &&
+      state.biometricPrompted &&
+      state.minDocThresholdMet;
+
+    if (allDone && state.onboardingStatus !== 'completed') {
+      state.onboardingStatus = 'completed';
+      state.completedAt      = new Date();
+      state.resumeSurface    = 'home';
+      state.currentStep      = null;
+    }
+
+    const saved = await this.onboardingRepo.save(state);
+    return this.toOnboardingPublic(saved);
+  }
+
+  private toOnboardingPublic(state: OnboardingState) {
+    return {
+      onboardingStatus:          state.onboardingStatus,
+      currentStep:               state.currentStep,
+      resumeSurface:             state.resumeSurface,
+      resumeContext:             state.resumeContext,
+      financialProfileCompleted: state.financialProfileCompleted,
+      goalsSet:                  state.goalsSet,
+      importAttempted:           state.importAttempted,
+      biometricPrompted:         state.biometricPrompted,
+      minDocThresholdMet:        state.minDocThresholdMet,
+      completedAt:               state.completedAt,
+    };
   }
 
   async forgotPassword(email: string) {
@@ -247,7 +346,7 @@ export class AuthService {
 
   async requestEmailVerification(userId: string, email: string) {
     const p = await this.buildOtpAndPersist(userId, email);
-    await this.mailService.sendEmailVerificationCode(p.normalizedEmail, p.fullName, p.code);
+    await this.mailService.sendEmailVerificationCode(p.normalizedEmail, p.code);
     return { message: `Código de verificación enviado a ${p.normalizedEmail}` };
   }
 
@@ -255,7 +354,7 @@ export class AuthService {
   private async buildOtpAndPersist(
     userId: string,
     email: string,
-  ): Promise<{ normalizedEmail: string; fullName: string; code: string }> {
+  ): Promise<{ normalizedEmail: string; code: string }> {
     const normalizedEmail = email.trim().toLowerCase();
 
     const existing = await this.usersService.findByEmail(normalizedEmail);
@@ -292,7 +391,7 @@ export class AuthService {
       await this.usersService.setPendingEmail(userId, normalizedEmail);
     }
 
-    return { normalizedEmail, fullName: user?.fullName ?? '', code };
+    return { normalizedEmail, code };
   }
 
   async confirmEmailVerification(userId: string, email: string, code: string) {
@@ -354,6 +453,40 @@ export class AuthService {
     };
   }
 
+  async updateBiometric(userId: string, dto: UpdateBiometricDto) {
+    if (dto.enabled && !dto.method) {
+      throw new BadRequestException('El método biométrico es obligatorio al activar');
+    }
+
+    const prefs = await this.biometricRepo.findOne({ where: { userId } });
+    if (!prefs) {
+      throw new NotFoundException('Preferencias biométricas no encontradas');
+    }
+
+    prefs.enabled = dto.enabled;
+    if (dto.enabled) {
+      prefs.method = dto.method!;
+      prefs.deviceId = dto.deviceId ?? null;
+      await this.onboardingRepo
+        .createQueryBuilder()
+        .update(OnboardingState)
+        .set({ biometricPrompted: true })
+        .where('user_id = :userId', { userId })
+        .execute();
+    } else {
+      prefs.method = null;
+      prefs.deviceId = null;
+    }
+
+    const saved = await this.biometricRepo.save(prefs);
+    return {
+      enabled: saved.enabled,
+      method: saved.method,
+      deviceId: saved.deviceId,
+      updatedAt: saved.updatedAt,
+    };
+  }
+
   private async revokeAllRefreshForUser(userId: string): Promise<void> {
     await this.refreshRepo
       .createQueryBuilder()
@@ -372,7 +505,7 @@ export class AuthService {
     const accessToken = await this.jwtService.signAsync(payload);
     const refreshPlain = generateOpaqueToken();
     const refreshHash = hashOpaqueToken(refreshPlain);
-    const days = this.config.get<number>('REFRESH_EXPIRES_DAYS', 7);
+    const days = this.config.get<number>('REFRESH_EXPIRES_DAYS', 30);
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     await this.refreshRepo.save(
       this.refreshRepo.create({

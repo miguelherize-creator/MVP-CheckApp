@@ -115,15 +115,18 @@ function headerRow(mascotUrl: string, logoUrl: string): string {
             </tr>`;
 }
 
-function footerRows(): string {
+function footerDisclaimerRow(): string {
   return `<tr>
               <td style="padding-bottom:12px;text-align:center;">
-                <p style="margin:0;font-size:12px;color:${COLOR.muted};line-height:18px;font-family:${FONT};">
+                <p style="margin:0;font-size:12px;font-weight:400;color:${COLOR.muted};line-height:normal;font-family:${FONT};">
                   Este es un correo generado de forma automática, por favor no respondas este mensaje.
                 </p>
               </td>
-            </tr>
-            <tr>
+            </tr>`;
+}
+
+function footerSignOffRow(): string {
+  return `<tr>
               <td style="padding-bottom:40px;text-align:center;">
                 <p style="margin:0;font-size:16px;color:${COLOR.muted};line-height:24px;font-family:${FONT};">
                   Saludos,<br />
@@ -133,25 +136,28 @@ function footerRows(): string {
             </tr>`;
 }
 
+function footerRows(omitDisclaimer: boolean | undefined): string {
+  return `${omitDisclaimer ? '' : footerDisclaimerRow()}${footerSignOffRow()}`;
+}
+
 export interface EmailShellOptions {
   title: string;
   mascotUrl: string;
   logoUrl: string;
-  /**
-   * URL pública del watermark (PNG recomendado).
-   * Si falta, se usa el SVG `data:` embebido (solo navegador — Gmail no lo
-   * renderiza, pero es perfecto para los previews HTML locales).
-   */
+  /** URL pública del isotipo usado como watermark. Si falta, usa SVG embebido. */
   isotypeUrl?: string;
   contentRows: string;
+  /** Filas `<tr>` extra antes del pie estándar. */
+  postDividerRows?: string;
+  /** Omite la fila «correo automático» del pie cuando ya está en `postDividerRows`. */
+  omitFooterDisclaimer?: boolean;
 }
 
 export function renderEmailShell(opts: EmailShellOptions): string {
   const watermarkSrc = opts.isotypeUrl?.trim() || ISOTYPE_DATA_URI;
 
-  // Estilos compartidos del wrapper que lleva el background.
-  // background-position: center top → el blob se ve cerca del header (como en Figma).
-  // background-size: 720px (con fallback a "auto" en clientes que no soportan size).
+  // background-position: center top mantiene el watermark visible cerca del header.
+  // background-size: 720px con fallback a "auto" para clientes que no soportan size.
   const bgStyle =
     `background-color:${COLOR.bg};` +
     `background-image:url('${watermarkSrc}');` +
@@ -224,7 +230,9 @@ export function renderEmailShell(opts: EmailShellOptions): string {
 
                 ${dividerRow(32)}
 
-                ${footerRows()}
+                ${opts.postDividerRows ?? ''}
+
+                ${footerRows(opts.omitFooterDisclaimer)}
 
               </table>
             </td>

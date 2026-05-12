@@ -1,9 +1,18 @@
 import { renderEmailShell, EMAIL_TOKENS } from './base';
 
-const { color: C, font: F } = EMAIL_TOKENS;
+const { color: C } = EMAIL_TOKENS;
+
+/** Aptos es la tipografía de la marca; Segoe UI y Arial como fallback de email. */
+const F = "'Aptos','Segoe UI',Helvetica,Arial,sans-serif";
+
+// Dos bloques de 3 dígitos separados por espacio, p. ej. `123 456`.
+function formatOtpTwoBlocks(code: string): string {
+  const digits = code.replace(/\D/g, '');
+  if (digits.length === 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+  return code.trim();
+}
 
 export interface EmailVerificationVars {
-  fullName: string;
   code: string;
   expiresMinutes: number;
   mascotUrl: string;
@@ -12,43 +21,52 @@ export interface EmailVerificationVars {
 }
 
 export function emailVerificationHtml(v: EmailVerificationVars): string {
-  const digits = v.code.split('').map(
-    (d) => `<span style="display:inline-block;width:44px;height:56px;line-height:56px;
-                         margin:0 4px;border-radius:12px;background:#F5F5F7;
-                         font-size:32px;font-weight:700;color:${C.heading};
-                         text-align:center;font-family:${F};">${d}</span>`,
-  ).join('');
+  const otpDisplay = formatOtpTwoBlocks(v.code);
 
-  const contentRows = `<tr>
-              <td style="padding-bottom:24px;text-align:center;">
-                <p style="margin:0;font-size:24px;font-weight:700;color:${C.heading};line-height:32px;font-family:${F};">
-                  Hola ${v.fullName},
+  const contentRows = `
+            <tr>
+              <td style="padding-bottom:40px;text-align:center;">
+                <p style="margin:0;font-size:24px;font-weight:600;color:${C.heading};line-height:32px;font-family:${F};">
+                  Hola
                 </p>
-                <p style="margin:4px 0 0;font-size:20px;font-weight:600;color:${C.subheading};line-height:28px;font-family:${F};">
+                <p style="margin:0;font-size:20px;font-weight:600;color:${C.subheading};line-height:normal;font-family:${F};">
                   que bueno tenerte por aquí
                 </p>
               </td>
             </tr>
 
             <tr>
-              <td style="padding-bottom:32px;text-align:center;">
-                <p style="margin:0;font-size:16px;font-weight:600;color:${C.body};line-height:26px;font-family:${F};">
-                  Ingresa este código en la app para confirmar tu cuenta.
-                  Expira en <strong>${v.expiresMinutes} minutos</strong>.
+              <td style="padding-bottom:40px;text-align:center;">
+                <p style="margin:0;font-size:16px;font-weight:600;color:${C.body};line-height:24px;font-family:${F};">
+                  Usa este código para confirmar tu cuenta y seguir<br />poniendo tu mes en claro.
                 </p>
               </td>
             </tr>
 
             <tr>
-              <td align="center" style="padding-bottom:32px;">
-                <div style="display:inline-block;">${digits}</div>
+              <td align="center" style="padding-bottom:40px;">
+                <p style="margin:0;font-size:24px;font-weight:700;color:${C.heading};line-height:32px;font-family:${F};text-align:center;">
+                  ${otpDisplay}
+                </p>
               </td>
             </tr>
 
             <tr>
               <td style="padding-bottom:40px;text-align:center;">
-                <p style="margin:0;font-size:13px;color:${C.muted};line-height:20px;font-family:${F};">
-                  Si no creaste una cuenta en Walvy, ignora este correo.
+                <p style="margin:0;font-size:16px;font-weight:600;color:${C.body};line-height:24px;font-family:${F};">
+                  Ingresa este código en la app para continuar.<br />
+                  Expira en <strong>${v.expiresMinutes} minutos</strong>.
+                </p>
+              </td>
+            </tr>`;
+
+  const postDividerRows = `<tr>
+              <td style="padding-bottom:12px;text-align:center;">
+                <p style="margin:0;font-size:12px;font-weight:400;color:${C.muted};line-height:normal;font-family:${F};">
+                  Si no solicitaste este código, puedes ignorar este correo.
+                </p>
+                <p style="margin:2px 0 0;font-size:12px;font-weight:400;color:${C.muted};line-height:normal;font-family:${F};">
+                  Este es un correo generado de forma automática, por favor no respondas este mensaje.
                 </p>
               </td>
             </tr>`;
@@ -59,5 +77,7 @@ export function emailVerificationHtml(v: EmailVerificationVars): string {
     logoUrl:    v.logoUrl,
     isotypeUrl: v.isotypeUrl,
     contentRows,
+    postDividerRows,
+    omitFooterDisclaimer: true,
   });
 }

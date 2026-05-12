@@ -86,21 +86,12 @@ export class UsersService {
     return this.usersRepo.findOne({ where: { username: username.trim().toLowerCase() } });
   }
 
-  async findByIdentifierWithPassword(identifier: string): Promise<User | null> {
-    const trimmed = identifier.trim();
-
-    if (trimmed.includes('@')) {
-      return this.usersRepo
-        .createQueryBuilder('user')
-        .addSelect('user.passwordHash')
-        .where('LOWER(user.email) = :email', { email: trimmed.toLowerCase() })
-        .getOne();
-    }
-
+  async findByEmailWithPassword(email: string): Promise<User | null> {
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('LOWER(user.username) = :username', { username: trimmed.toLowerCase() })
+      .where('LOWER(user.email) = :email', { email: email.trim().toLowerCase() })
+      .andWhere('user.deletedAt IS NULL')
       .getOne();
   }
 
@@ -109,6 +100,7 @@ export class UsersService {
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
       .where('user.userId = :id', { id })
+      .andWhere('user.deletedAt IS NULL')
       .getOne();
   }
 
@@ -153,12 +145,7 @@ export class UsersService {
     }
 
     if (dto.username !== undefined) {
-      const normalizedUsername = dto.username.trim().toLowerCase();
-      const existing = await this.usersRepo.findOne({ where: { username: normalizedUsername } });
-      if (existing && existing.userId !== userId) {
-        throw new ConflictException('Este nombre de usuario ya está en uso');
-      }
-      user.username = normalizedUsername;
+      user.username = dto.username.trim().toLowerCase();
     }
 
     if (dto.avatarUrl !== undefined) {

@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Get,
   Logger,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +18,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RequestEmailVerificationDto } from './dto/request-email-verification.dto';
 import { ConfirmEmailVerificationDto } from './dto/confirm-email-verification.dto';
+import { UpdateBiometricDto } from './dto/update-biometric.dto';
+import { UpdateOnboardingStepDto } from './dto/update-onboarding-step.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
@@ -81,6 +85,14 @@ export class AuthController {
     return this.authService.logout(dto.refreshToken);
   }
 
+  @Post('logout-all')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Cerrar sesión en todos los dispositivos' })
+  logoutAll(@CurrentUser() user: JwtPayload) {
+    return this.authService.logoutAll(user.sub);
+  }
+
   @Post('forgot-password')
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Solicitar recuperación de contraseña' })
@@ -96,6 +108,7 @@ export class AuthController {
 
   @Post('email-verification/request')
   @UseGuards(AuthGuard('jwt'))
+  @Throttle({ short: { limit: 3, ttl: 3600000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Solicitar código OTP de verificación de correo',
@@ -141,5 +154,45 @@ export class AuthController {
     @Body() dto: RequestEmailVerificationDto,
   ) {
     return this.authService.requestEmailVerification(user.sub, dto.email);
+  }
+
+  @Patch('biometric')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Activar o desactivar autenticación biométrica',
+    description:
+      'Al activar (`enabled: true`), `method` es obligatorio. ' +
+      'Al desactivar, `method` y `deviceId` se limpian automáticamente.',
+  })
+  updateBiometric(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateBiometricDto,
+  ) {
+    return this.authService.updateBiometric(user.sub, dto);
+  }
+
+  @Get('onboarding')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Obtener estado del onboarding del usuario' })
+  getOnboarding(@CurrentUser() user: JwtPayload) {
+    return this.authService.getOnboarding(user.sub);
+  }
+
+  @Patch('onboarding/step')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Actualizar paso del onboarding',
+    description:
+      'Actualiza campos seleccionados del onboarding. ' +
+      'Cuando todos los checkpoints están en true, el backend avanza automáticamente a `completed`.',
+  })
+  updateOnboardingStep(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateOnboardingStepDto,
+  ) {
+    return this.authService.updateOnboardingStep(user.sub, dto);
   }
 }
