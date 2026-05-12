@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Logger,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RequestEmailVerificationDto } from './dto/request-email-verification.dto';
 import { ConfirmEmailVerificationDto } from './dto/confirm-email-verification.dto';
+import { UpdateBiometricDto } from './dto/update-biometric.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
@@ -142,5 +144,21 @@ export class AuthController {
     @Body() dto: RequestEmailVerificationDto,
   ) {
     return this.authService.requestEmailVerification(user.sub, dto.email);
+  }
+
+  @Patch('biometric')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Activar o desactivar autenticación biométrica',
+    description:
+      'Al activar (`enabled: true`), `method` es obligatorio. ' +
+      'Al desactivar, `method` y `deviceId` se limpian automáticamente.',
+  })
+  updateBiometric(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateBiometricDto,
+  ) {
+    return this.authService.updateBiometric(user.sub, dto);
   }
 }

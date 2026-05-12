@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -19,6 +20,7 @@ import { BiometricPreferences } from './entities/biometric-preferences.entity';
 import { OnboardingState } from './entities/onboarding-state.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateBiometricDto } from './dto/update-biometric.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import {
   generateOpaqueToken,
@@ -182,17 +184,27 @@ export class AuthService {
 
   async refresh(refreshTokenPlain: string) {
     const hash = hashOpaqueToken(refreshTokenPlain);
-    const row = await this.refreshRepo.findOne({
-      where: { tokenHash: hash },
-      relations: ['user'],
-    });
-    if (!row || row.revokedAt || row.expiresAt.getTime() < Date.now()) {
+    const row = await this.refreshRepo.findOne({ where: { tokenHash: hash } });
+
+    if (!row) {
       throw new UnauthorizedException('Sesión inválida o expirada');
     }
+
+    // Token ya revocado → posible replay attack; cerrar todas las sesiones del usuario
+    if (row.revokedAt) {
+      await this.revokeAllRefreshForUser(row.userId);
+      throw new UnauthorizedException('Sesión inválida o expirada');
+    }
+
+    if (row.expiresAt.getTime() < Date.now()) {
+      throw new UnauthorizedException('Sesión inválida o expirada');
+    }
+
     const user = await this.usersService.findById(row.userId);
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
+
     row.revokedAt = new Date();
     await this.refreshRepo.save(row);
     return this.issueTokens(user);
@@ -376,6 +388,40 @@ export class AuthService {
     return {
       message: 'Correo verificado correctamente',
       user: this.usersService.toPublic(updatedUser),
+    };
+  }
+
+  async updateBiometric(userId: string, dto: UpdateBiometricDto) {
+    if (dto.enabled && !dto.method) {
+      throw new BadRequestException('El método biométrico es obligatorio al activar');
+    }
+
+    const prefs = await this.biometricRepo.findOne({ where: { userId } });
+    if (!prefs) {
+      throw new NotFoundException('Preferencias biométricas no encontradas');
+    }
+
+    prefs.enabled = dto.enabled;
+    if (dto.enabled) {
+      prefs.method = dto.method!;
+      prefs.deviceId = dto.deviceId ?? null;
+      await this.onboardingRepo
+        .createQueryBuilder()
+        .update(OnboardingState)
+        .set({ biometricPrompted: true })
+        .where('user_id = :userId', { userId })
+        .execute();
+    } else {
+      prefs.method = null;
+      prefs.deviceId = null;
+    }
+
+    const saved = await this.biometricRepo.save(prefs);
+    return {
+      enabled: saved.enabled,
+      method: saved.method,
+      deviceId: saved.deviceId,
+      updatedAt: saved.updatedAt,
     };
   }
 
