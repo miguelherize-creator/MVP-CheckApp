@@ -29,6 +29,9 @@ export class PasswordResetToken {
   @Column({ name: 'used_at', type: 'timestamptz', nullable: true })
   usedAt: Date | null;
 
+  @Column({ name: 'attempts', type: 'int', default: 0 })
+  attempts: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

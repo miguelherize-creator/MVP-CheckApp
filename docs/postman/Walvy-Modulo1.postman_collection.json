@@ -1,0 +1,713 @@
+{
+  "info": {
+    "_postman_id": "walvy-modulo1-auth-onboarding-v1",
+    "name": "Walvy — Módulo 1: Auth & Onboarding",
+    "description": "Módulo 1 completo: registro, verificación de email, sesión, contraseña, onboarding y perfil.\n\n**Uso del Happy Path:**\n1. Ajusta las variables `email`, `password` y `documentNumber`.\n2. Ejecuta la carpeta '🚀 Happy Path' con Collection Runner.\n3. Después del paso 01 (Registro), revisa tu correo, copia el código OTP y pégalo en la variable `otpCode`.\n4. Continúa desde el paso 02 — el resto encadena automáticamente.\n\n**Chaining:** los pasos 02 al 08 usan `setNextRequest` para avanzar solos en Collection Runner.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",        "value": "http://localhost:3000", "type": "string" },
+    { "key": "email",          "value": "test.walvy@mailinator.com", "type": "string" },
+    { "key": "password",       "value": "Test123456!", "type": "string" },
+    { "key": "documentNumber", "value": "12345678-9",  "type": "string" },
+    { "key": "accessToken",    "value": "", "type": "string" },
+    { "key": "refreshToken",   "value": "", "type": "string" },
+    { "key": "userId",         "value": "", "type": "string" },
+    { "key": "otpCode",        "value": "", "type": "string", "description": "Llenar manualmente con el OTP recibido por email (6 dígitos)" },
+    { "key": "resetOtpCode",   "value": "", "type": "string", "description": "Código OTP de 6 dígitos recibido por email para recuperar contraseña" }
+  ],
+  "item": [
+
+    {
+      "name": "🚀 Happy Path — Registro al Onboarding",
+      "description": "Flujo completo en orden. Usar Collection Runner. Pausar después del paso 01 para ingresar el código OTP en la variable `otpCode`.",
+      "item": [
+
+        {
+          "name": "01 · Registro",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"documentNumber\": \"{{documentNumber}}\",\n  \"password\": \"{{password}}\",\n  \"acceptTerms\": true,\n  \"acceptPrivacy\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "description": "Crea la cuenta. El backend envía el OTP por email automáticamente.\n\n⚠️ Después de ejecutar este paso: revisa el correo, copia el código OTP y pégalo en la variable `otpCode` antes de continuar con el paso 02."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if ([200, 201].includes(pm.response.code)) {",
+                "    const res = pm.response.json();",
+                "    pm.collectionVariables.set('accessToken', res.accessToken);",
+                "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                "    pm.collectionVariables.set('userId', res.user.id);",
+                "    pm.collectionVariables.set('email', res.user.email);",
+                "    console.log('✅ Registro OK — userId: ' + res.user.id);",
+                "    console.log('📧 Revisa tu correo y guarda el OTP en la variable otpCode');",
+                "    pm.test('Registro exitoso', () => pm.response.to.have.status(201));",
+                "    pm.test('accessToken presente', () => pm.expect(res.accessToken).to.be.a('string'));",
+                "    pm.test('nextStep = email_verification', () => pm.expect(res.nextStep).to.eql('email_verification'));",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "02 · Confirmar Email (OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{otpCode}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/email-verification/confirm", "host": ["{{baseUrl}}"], "path": ["auth", "email-verification", "confirm"] },
+            "description": "Valida el código OTP de 6 dígitos.\n\n⚠️ Asegúrate de haber llenado la variable `otpCode` antes de ejecutar."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const code = pm.collectionVariables.get('otpCode');",
+                  "if (!code || code.trim() === '') {",
+                  "    throw new Error('⚠️  Variable otpCode vacía. Revisa tu correo y pega el código OTP en Variables de la colección.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if ([200, 201].includes(pm.response.code)) {",
+                  "    const res = pm.response.json();",
+                  "    console.log('✅ Email verificado — ' + res.user.email);",
+                  "    pm.test('Email verificado', () => pm.expect(res.user.emailVerified).to.be.true);",
+                  "    postman.setNextRequest('03 · Setup Biométrico');",
+                  "} else {",
+                  "    console.log('❌ Error: ' + pm.response.text());",
+                  "    postman.setNextRequest(null);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "03 · Setup Biométrico",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/biometric", "host": ["{{baseUrl}}"], "path": ["auth", "biometric"] },
+            "description": "Happy path: salta la biometría (`enabled: false`). El backend igual marca `biometric_prompted = true`.\n\nPara activarla: `{ \"enabled\": true, \"method\": \"face_id\", \"deviceId\": \"device-test-123\" }`"
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "    const res = pm.response.json();",
+                "    console.log('✅ Biometría configurada — enabled: ' + res.enabled);",
+                "    pm.test('biometric_prompted marcado', () => pm.response.to.have.status(200));",
+                "    postman.setNextRequest('04 · Step → profile_basic');",
+                "} else {",
+                "    postman.setNextRequest(null);",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "04 · Step → profile_basic",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentStep\": \"profile_basic\",\n  \"resumeSurface\": \"onboarding\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/onboarding/step", "host": ["{{baseUrl}}"], "path": ["auth", "onboarding", "step"] },
+            "description": "Avanza el step a `profile_basic` tras pasar por la pantalla de biometría."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "    const res = pm.response.json();",
+                "    console.log('✅ Step actualizado → ' + res.currentStep);",
+                "    postman.setNextRequest('05 · Guardar Nombre y Alias');",
+                "} else {",
+                "    postman.setNextRequest(null);",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "05 · Guardar Nombre y Alias",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Test Usuario\",\n  \"username\": \"tester\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/users/profile", "host": ["{{baseUrl}}"], "path": ["users", "profile"] },
+            "description": "Persiste nombre completo y alias. La app concatena nombre + apellido → `fullName` antes de enviar.\n\nAl menos uno de los dos campos debe tener valor."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "    const res = pm.response.json();",
+                "    console.log('✅ Nombre guardado — fullName: ' + res.fullName + ' | username: ' + res.username);",
+                "    postman.setNextRequest('06 · Step → welcome');",
+                "} else {",
+                "    postman.setNextRequest(null);",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "06 · Step → welcome",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentStep\": \"welcome\",\n  \"resumeSurface\": \"onboarding\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/onboarding/step", "host": ["{{baseUrl}}"], "path": ["auth", "onboarding", "step"] },
+            "description": "Avanza a la pantalla Onboarding_Welcome."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "    console.log('✅ Step → welcome');",
+                "    postman.setNextRequest('07 · Step → document_upload');",
+                "} else {",
+                "    postman.setNextRequest(null);",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "07 · Step → document_upload",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentStep\": \"document_upload\",\n  \"resumeSurface\": \"onboarding\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/onboarding/step", "host": ["{{baseUrl}}"], "path": ["auth", "onboarding", "step"] },
+            "description": "Usuario toca '¡Comencemos!' en Welcome. Entra al frame de carga de documentos."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "    console.log('✅ Step → document_upload');",
+                "    postman.setNextRequest('08 · Consultar Estado Onboarding');",
+                "} else {",
+                "    postman.setNextRequest(null);",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "08 · Consultar Estado Onboarding",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/onboarding", "host": ["{{baseUrl}}"], "path": ["auth", "onboarding"] },
+            "description": "Verifica el estado final del onboarding tras recorrer el happy path.\n\nEspera: `onboardingStatus: 'in_progress'`, `currentStep: 'document_upload'`, `biometricPrompted: true`."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "    const res = pm.response.json();",
+                "    console.log('📋 Estado onboarding:');",
+                "    console.log('   status:           ' + res.onboardingStatus);",
+                "    console.log('   currentStep:      ' + res.currentStep);",
+                "    console.log('   resumeSurface:    ' + res.resumeSurface);",
+                "    console.log('   biometricPrompted:' + res.biometricPrompted);",
+                "    console.log('   importAttempted:  ' + res.importAttempted);",
+                "    pm.test('biometricPrompted = true', () => pm.expect(res.biometricPrompted).to.be.true);",
+                "    pm.test('currentStep = document_upload', () => pm.expect(res.currentStep).to.eql('document_upload'));",
+                "}"
+              ]
+            }
+          }]
+        }
+
+      ]
+    },
+
+    {
+      "name": "🔐 Autenticación",
+      "item": [
+
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "description": "Login con email y contraseña. Si el usuario tiene `pending_verification`, emite tokens y reenvía el OTP automáticamente."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if ([200, 201].includes(pm.response.code)) {",
+                "    const res = pm.response.json();",
+                "    pm.collectionVariables.set('accessToken', res.accessToken);",
+                "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                "    pm.collectionVariables.set('userId', res.user.id);",
+                "    console.log('✅ Login OK — emailVerified: ' + res.user.emailVerified);",
+                "    if (res.nextStep) console.log('➡️  nextStep: ' + res.nextStep);",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] },
+            "description": "Rota el par de tokens. El refresh token anterior queda revocado.\n\nSi se presenta un token ya revocado → backend cierra TODAS las sesiones (replay attack protection)."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if ([200, 201].includes(pm.response.code)) {",
+                "    const res = pm.response.json();",
+                "    pm.collectionVariables.set('accessToken', res.accessToken);",
+                "    pm.collectionVariables.set('refreshToken', res.refreshToken);",
+                "    console.log('✅ Tokens renovados');",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "Logout (dispositivo actual)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] },
+            "description": "Revoca solo el refresh token del dispositivo actual. Siempre retorna 200."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if ([200, 201].includes(pm.response.code)) {",
+                "    pm.collectionVariables.set('accessToken', '');",
+                "    pm.collectionVariables.set('refreshToken', '');",
+                "    console.log('✅ Logout OK — tokens limpiados');",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "Logout (todos los dispositivos)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/logout-all", "host": ["{{baseUrl}}"], "path": ["auth", "logout-all"] },
+            "description": "Revoca TODOS los refresh tokens activos del usuario. Requiere access token válido.\n\nÚtil cuando el usuario cree que su cuenta fue comprometida."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if ([200, 201].includes(pm.response.code)) {",
+                "    pm.collectionVariables.set('accessToken', '');",
+                "    pm.collectionVariables.set('refreshToken', '');",
+                "    console.log('✅ Todas las sesiones cerradas');",
+                "}"
+              ]
+            }
+          }]
+        }
+
+      ]
+    },
+
+    {
+      "name": "📧 Verificación de Email",
+      "item": [
+
+        {
+          "name": "Solicitar OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/email-verification/request", "host": ["{{baseUrl}}"], "path": ["auth", "email-verification", "request"] },
+            "description": "Genera y envía un nuevo código OTP. Invalida el código previo. Rate limit: 3/hora."
+          }
+        },
+
+        {
+          "name": "Confirmar OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{otpCode}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/email-verification/confirm", "host": ["{{baseUrl}}"], "path": ["auth", "email-verification", "confirm"] },
+            "description": "Valida el OTP. Máximo 5 intentos fallidos antes de invalidar el código.\n\nLlena la variable `otpCode` antes de ejecutar."
+          },
+          "event": [{
+            "listen": "prerequest",
+            "script": {
+              "exec": [
+                "const code = pm.collectionVariables.get('otpCode');",
+                "if (!code || code.trim() === '') {",
+                "    throw new Error('⚠️  Variable otpCode vacía. Revisa tu correo y pega el código.');",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "Reenviar OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/email-verification/resend", "host": ["{{baseUrl}}"], "path": ["auth", "email-verification", "resend"] },
+            "description": "Reenvía el OTP e invalida el anterior. Rate limit: 3/hora."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "🔑 Contraseña",
+      "item": [
+
+        {
+          "name": "Forgot Password — Solicitar OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["auth", "forgot-password"] },
+            "description": "Paso 1 — Envía un código OTP de 6 dígitos al correo del usuario.\n\nSiempre retorna el mismo mensaje genérico (no revela si el email existe).\n\n**Próximo paso:** revisa el correo, copia el código de 6 dígitos y pégalo en la variable `resetOtpCode`. Luego ejecuta 'Reset Password — Verificar OTP'.\n\n**Expiración:** 15 minutos. **Intentos máximos:** 5."
+          }
+        },
+
+        {
+          "name": "Reset Password — Verificar OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{resetOtpCode}}\",\n  \"newPassword\": \"NuevaPass@456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password"] },
+            "description": "Paso 2 — Verifica el código OTP y actualiza la contraseña.\n\nRevoca todas las sesiones activas al completar.\n\n**Antes de ejecutar:** llena `resetOtpCode` con el código de 6 dígitos recibido por email.\n\n**Errores posibles:**\n- Código incorrecto: responde con intentos restantes\n- 5 intentos fallidos: solicitar nuevo código con 'Forgot Password'"
+          }
+        },
+
+        {
+          "name": "Cambiar Contraseña",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"NuevaPass@456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/users/me/password", "host": ["{{baseUrl}}"], "path": ["users", "me", "password"] },
+            "description": "Cambia la contraseña desde el perfil. Requiere la contraseña actual. Revoca todas las sesiones activas al completar."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "📋 Onboarding",
+      "item": [
+
+        {
+          "name": "GET Estado",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/onboarding", "host": ["{{baseUrl}}"], "path": ["auth", "onboarding"] },
+            "description": "Retorna el estado completo del onboarding. La app lo consulta al abrirse para decidir la pantalla inicial.\n\n**Lógica de navegación:**\n- `resume_surface = 'home'` → Home\n- `resume_surface = 'onboarding'` → pantalla correspondiente a `current_step`\n- `resume_surface = null` → primera apertura: email_verification\n- `onboarding_status = 'completed'` → Home"
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "    const res = pm.response.json();",
+                "    console.log('📋 Estado onboarding:');",
+                "    console.log('   status:        ' + res.onboardingStatus);",
+                "    console.log('   currentStep:   ' + res.currentStep);",
+                "    console.log('   resumeSurface: ' + res.resumeSurface);",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "Step → document_processing (enviar docs)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentStep\": \"document_processing\",\n  \"resumeSurface\": \"onboarding\",\n  \"importAttempted\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/onboarding/step", "host": ["{{baseUrl}}"], "path": ["auth", "onboarding", "step"] },
+            "description": "Usuario toca 'Continuemos' tras subir documentos. Marca `importAttempted = true`."
+          }
+        },
+
+        {
+          "name": "Salir desde Welcome → Home",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentStep\": \"document_upload\",\n  \"resumeSurface\": \"home\",\n  \"resumeContext\": { \"pendingStep\": \"document_upload\" }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/onboarding/step", "host": ["{{baseUrl}}"], "path": ["auth", "onboarding", "step"] },
+            "description": "Flujo B: usuario toca 'Continuar más tarde' desde Welcome o Carga de docs. Sale sin haber procesado nada."
+          }
+        },
+
+        {
+          "name": "Salir desde Analizando → Home",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentStep\": \"document_processing\",\n  \"resumeSurface\": \"home\",\n  \"resumeContext\": { \"jobId\": \"job-uuid-aqui\" }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/onboarding/step", "host": ["{{baseUrl}}"], "path": ["auth", "onboarding", "step"] },
+            "description": "Flujo C: usuario sale mientras el análisis sigue en curso. El análisis continúa en el servidor. Llenar `jobId` con el ID del job de análisis."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "👤 Perfil & Biométrico",
+      "item": [
+
+        {
+          "name": "GET Perfil",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users/me", "host": ["{{baseUrl}}"], "path": ["users", "me"] },
+            "description": "Retorna el perfil público del usuario autenticado."
+          }
+        },
+
+        {
+          "name": "PATCH Nombre y Alias (onboarding)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ana Pérez\",\n  \"username\": \"Ani\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/users/profile", "host": ["{{baseUrl}}"], "path": ["users", "profile"] },
+            "description": "Paso '¿Cómo quieres que te llamemos?' del onboarding.\n\nLa app concatena nombre + apellido → `fullName`. Al menos uno de los dos campos debe tener valor.\n\nValidación cruzada: si ambos están vacíos → 400."
+          }
+        },
+
+        {
+          "name": "PATCH Perfil general",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ana Pérez\",\n  \"username\": \"aniux\",\n  \"avatarUrl\": \"https://cdn.example.com/avatar.jpg\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/users/me", "host": ["{{baseUrl}}"], "path": ["users", "me"] },
+            "description": "Actualiza perfil general (nombre, alias, avatar, email). Todos los campos son opcionales."
+          }
+        },
+
+        {
+          "name": "PATCH Biométrico — Activar (Face ID)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"method\": \"face_id\",\n  \"deviceId\": \"device-test-001\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/biometric", "host": ["{{baseUrl}}"], "path": ["auth", "biometric"] },
+            "description": "Activa autenticación biométrica. Métodos válidos: `face_id`, `fingerprint`, `device_pin`.\n\nSiempre marca `biometric_prompted = true` en onboarding."
+          }
+        },
+
+        {
+          "name": "PATCH Biométrico — Saltar",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/biometric", "host": ["{{baseUrl}}"], "path": ["auth", "biometric"] },
+            "description": "Usuario salta la biometría. Limpia `method` y `deviceId`. Igualmente marca `biometric_prompted = true`."
+          }
+        }
+
+      ]
+    }
+
+  ]
+}

@@ -1,6 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsEmail,
   IsOptional,
   IsString,
   IsUrl,
@@ -30,11 +29,6 @@ export class UpdateProfileDto {
       'El nombre de usuario solo puede contener letras, números, puntos, guiones y guiones bajos',
   })
   username?: string;
-
-  @ApiPropertyOptional({ example: 'ana@example.com' })
-  @IsOptional()
-  @IsEmail({}, { message: 'Correo no válido' })
-  email?: string;
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/avatar.jpg' })
   @IsOptional()

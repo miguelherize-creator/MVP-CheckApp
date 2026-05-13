@@ -154,17 +154,21 @@ export class UsersService {
       user.avatarUrl = dto.avatarUrl;
     }
 
-    if (dto.email !== undefined) {
-      const normalizedEmail = dto.email.toLowerCase();
-      if (normalizedEmail !== user.email) {
-        const existing = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
-        if (existing && existing.userId !== userId) {
-          throw new ConflictException('Este correo ya está registrado por otra cuenta');
-        }
-        user.email = normalizedEmail;
-        user.emailVerifiedAt = null;
-      }
+    return this.usersRepo.save(user);
+  }
+
+  async updateDisplayName(userId: string, dto: UpdateDisplayNameDto): Promise<User> {
+    if (!dto.fullName?.trim() && !dto.username?.trim()) {
+      throw new BadRequestException('Debes ingresar al menos un nombre o alias');
     }
+
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
+    if (dto.username !== undefined) user.username = dto.username.trim();
 
     return this.usersRepo.save(user);
   }

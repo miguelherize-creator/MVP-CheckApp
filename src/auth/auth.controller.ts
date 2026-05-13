@@ -101,9 +101,9 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  @ApiOperation({ summary: 'Restablecer contraseña con token' })
+  @ApiOperation({ summary: 'Restablecer contraseña con código OTP' })
   resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto.token, dto.newPassword);
+    return this.authService.resetPassword(dto.email, dto.code, dto.newPassword);
   }
 
   @Post('email-verification/request')

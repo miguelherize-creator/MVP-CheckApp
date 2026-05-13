@@ -283,22 +283,19 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await this.usersService.findByEmail(email);
-
     const generic = {
       message:
-        'Si el correo existe en nuestro sistema, recibirás instrucciones para restablecer tu contraseña.',
+        'Si el correo existe en nuestro sistema, recibirás un código para restablecer tu contraseña.',
     };
 
-    if (!user) {
-      return generic;
-    }
+    const user = await this.usersService.findByEmail(email);
+    if (!user) return generic;
 
     await this.resetRepo.delete({ userId: user.userId });
 
-    const plain = generateOpaqueToken();
-    const tokenHash = hashOpaqueToken(plain);
-    const minutes = this.config.get<number>('PASSWORD_RESET_EXPIRES_MINUTES', 60);
+    const code = generateSixDigitCode();
+    const tokenHash = hashOpaqueToken(code);
+    const minutes = this.config.get<number>('PASSWORD_RESET_EXPIRES_MINUTES', 15);
     const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
 
     await this.resetRepo.save(
@@ -307,22 +304,46 @@ export class AuthService {
         tokenHash,
         expiresAt,
         usedAt: null,
+        attempts: 0,
       }),
     );
 
-    await this.mailService.sendPasswordResetEmail(user.email!, plain);
+    await this.mailService.sendPasswordResetOtp(user.email!, code);
     return generic;
   }
 
-  async resetPassword(plainToken: string, newPassword: string) {
-    const hash = hashOpaqueToken(plainToken);
-    const row = await this.resetRepo.findOne({
-      where: { tokenHash: hash },
-      relations: ['user'],
-    });
-    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Token inválido o expirado');
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const MAX_ATTEMPTS = 5;
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException('Código inválido o expirado');
     }
+
+    const row = await this.resetRepo.findOne({
+      where: { userId: user.userId },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Código inválido o expirado');
+    }
+
+    if (row.attempts >= MAX_ATTEMPTS) {
+      throw new BadRequestException('Demasiados intentos fallidos. Solicita un nuevo código.');
+    }
+
+    const hash = hashOpaqueToken(code);
+    if (hash !== row.tokenHash) {
+      row.attempts += 1;
+      await this.resetRepo.save(row);
+      const remaining = MAX_ATTEMPTS - row.attempts;
+      if (remaining <= 0) {
+        throw new BadRequestException('Demasiados intentos fallidos. Solicita un nuevo código.');
+      }
+      throw new BadRequestException(`Código incorrecto. Te quedan ${remaining} intentos.`);
+    }
+
     await this.usersService.updatePassword(row.userId, newPassword);
     row.usedAt = new Date();
     await this.resetRepo.save(row);
