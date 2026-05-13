@@ -249,9 +249,9 @@ export class AuthService {
     if (dto.biometricPrompted !== undefined)        state.biometricPrompted        = dto.biometricPrompted;
     if (dto.minDocThresholdMet !== undefined)       state.minDocThresholdMet       = dto.minDocThresholdMet;
 
+    // goals_set excluido hasta que tenga pantalla asignada en el flujo UI
     const allDone =
       state.financialProfileCompleted &&
-      state.goalsSet &&
       state.importAttempted &&
       state.biometricPrompted &&
       state.minDocThresholdMet;
@@ -442,7 +442,7 @@ export class AuthService {
     await this.onboardingRepo
       .createQueryBuilder()
       .update(OnboardingState)
-      .set({ onboardingStatus: 'in_progress', currentStep: 'profile' })
+      .set({ onboardingStatus: 'in_progress', currentStep: 'biometric_setup' })
       .where('user_id = :userId', { userId })
       .andWhere('current_step = :step', { step: 'email_verification' })
       .execute();
@@ -467,16 +467,18 @@ export class AuthService {
     if (dto.enabled) {
       prefs.method = dto.method!;
       prefs.deviceId = dto.deviceId ?? null;
-      await this.onboardingRepo
-        .createQueryBuilder()
-        .update(OnboardingState)
-        .set({ biometricPrompted: true })
-        .where('user_id = :userId', { userId })
-        .execute();
     } else {
       prefs.method = null;
       prefs.deviceId = null;
     }
+
+    // Siempre marca el step como visitado, independiente de si activó o no
+    await this.onboardingRepo
+      .createQueryBuilder()
+      .update(OnboardingState)
+      .set({ biometricPrompted: true })
+      .where('user_id = :userId', { userId })
+      .execute();
 
     const saved = await this.biometricRepo.save(prefs);
     return {

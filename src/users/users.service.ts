@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -8,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateDisplayNameDto } from './dto/update-display-name.dto';
 import { CatalogSeedService } from '../catalog/catalog-seed.service';
 
 const BCRYPT_ROUNDS = 12;
@@ -163,6 +165,22 @@ export class UsersService {
         user.emailVerifiedAt = null;
       }
     }
+
+    return this.usersRepo.save(user);
+  }
+
+  async updateDisplayName(userId: string, dto: UpdateDisplayNameDto): Promise<User> {
+    if (!dto.fullName?.trim() && !dto.username?.trim()) {
+      throw new BadRequestException('Debes ingresar al menos un nombre o alias');
+    }
+
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
+    if (dto.username !== undefined) user.username = dto.username.trim();
 
     return this.usersRepo.save(user);
   }

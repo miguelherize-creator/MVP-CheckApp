@@ -108,6 +108,7 @@ App elimina credencial biométrica local (KeyStore / SecureEnclave)
 
 ## Notas
 
-- Al activar, `biometric_prompted` en `user_onboarding_state` se marca `true` automáticamente.
+- `biometric_prompted` en `user_onboarding_state` se marca `true` **siempre** — tanto al activar como al saltar. Representa que el usuario ya pasó por la pantalla y tomó una decisión, no que activó la biometría.
 - Al desactivar, `method` y `deviceId` se limpian en el backend.
+- Tras recibir el 200, la app debe llamar `PATCH /auth/onboarding/step { currentStep: 'profile_basic', resumeSurface: 'onboarding' }` para avanzar el flujo.
 - Multi-dispositivo (múltiples registros biométricos) es roadmap post-MVP — por ahora un registro por usuario.
