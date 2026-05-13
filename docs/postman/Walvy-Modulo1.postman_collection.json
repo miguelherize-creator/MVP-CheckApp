@@ -14,7 +14,7 @@
     { "key": "refreshToken",   "value": "", "type": "string" },
     { "key": "userId",         "value": "", "type": "string" },
     { "key": "otpCode",        "value": "", "type": "string", "description": "Llenar manualmente con el OTP recibido por email (6 dígitos)" },
-    { "key": "resetToken",     "value": "", "type": "string", "description": "Token de reset de contraseña (del email de recuperación)" }
+    { "key": "resetOtpCode",   "value": "", "type": "string", "description": "Código OTP de 6 dígitos recibido por email para recuperar contraseña" }
   ],
   "item": [
 
@@ -485,7 +485,7 @@
       "item": [
 
         {
-          "name": "Forgot Password",
+          "name": "Forgot Password — Solicitar OTP",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -495,22 +495,22 @@
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{baseUrl}}/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["auth", "forgot-password"] },
-            "description": "Solicita recuperación de contraseña. Siempre retorna el mismo mensaje genérico (no revela si el email existe)."
+            "description": "Paso 1 — Envía un código OTP de 6 dígitos al correo del usuario.\n\nSiempre retorna el mismo mensaje genérico (no revela si el email existe).\n\n**Próximo paso:** revisa el correo, copia el código de 6 dígitos y pégalo en la variable `resetOtpCode`. Luego ejecuta 'Reset Password — Verificar OTP'.\n\n**Expiración:** 15 minutos. **Intentos máximos:** 5."
           }
         },
 
         {
-          "name": "Reset Password",
+          "name": "Reset Password — Verificar OTP",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"NuevaPass@456\"\n}",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"{{resetOtpCode}}\",\n  \"newPassword\": \"NuevaPass@456\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{baseUrl}}/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password"] },
-            "description": "Usa el token del email de recuperación para cambiar la contraseña. Revoca todas las sesiones activas.\n\nLlena la variable `resetToken` con el token recibido por email."
+            "description": "Paso 2 — Verifica el código OTP y actualiza la contraseña.\n\nRevoca todas las sesiones activas al completar.\n\n**Antes de ejecutar:** llena `resetOtpCode` con el código de 6 dígitos recibido por email.\n\n**Errores posibles:**\n- Código incorrecto: responde con intentos restantes\n- 5 intentos fallidos: solicitar nuevo código con 'Forgot Password'"
           }
         },
 

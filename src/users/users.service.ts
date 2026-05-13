@@ -154,18 +154,6 @@ export class UsersService {
       user.avatarUrl = dto.avatarUrl;
     }
 
-    if (dto.email !== undefined) {
-      const normalizedEmail = dto.email.toLowerCase();
-      if (normalizedEmail !== user.email) {
-        const existing = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
-        if (existing && existing.userId !== userId) {
-          throw new ConflictException('Este correo ya está registrado por otra cuenta');
-        }
-        user.email = normalizedEmail;
-        user.emailVerifiedAt = null;
-      }
-    }
-
     return this.usersRepo.save(user);
   }
 
