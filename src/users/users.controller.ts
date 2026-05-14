@@ -39,7 +39,7 @@ export class UsersController {
   @Patch('me')
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({
-    summary: 'Actualizar perfil (nombre, apellido, alias/username, correo)',
+    summary: 'Actualizar perfil (firstName, lastName, username, avatarUrl)',
   })
   async updateMe(
     @CurrentUser() user: JwtPayload,
@@ -54,8 +54,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Guardar nombre y alias (paso de onboarding)',
     description:
-      'Persiste fullName y/o username. Al menos uno debe llegar con valor. ' +
-      'La app concatena nombre + apellido antes de enviar fullName.',
+      'Persiste firstName, lastName y/o username. Al menos uno debe llegar con valor no vacío.',
   })
   async updateProfile(
     @CurrentUser() user: JwtPayload,

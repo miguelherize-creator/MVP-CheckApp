@@ -37,10 +37,12 @@ Content-Type: application/json
 {
   "user": {
     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "fullName": null,
+    "firstName": null,
+    "lastName": null,
     "email": "ana@example.com",
     "username": null,
     "avatarUrl": null,
+    "documentNumber": "12345678-5",
     "emailVerified": false,
     "trialEndsAt": "2026-05-25T12:00:00.000Z",
     "createdAt": "2026-05-11T12:00:00.000Z"
@@ -54,7 +56,7 @@ Content-Type: application/json
 
 | Campo | Descripción |
 |---|---|
-| `user.fullName` | `null` al registrarse. Se completa en el paso `profile` del onboarding. |
+| `user.firstName` / `user.lastName` | `null` al registrarse. Se completan en el paso `profile_basic` del onboarding. |
 | `user.emailVerified` | Siempre `false` al registrarse. Pasa a `true` tras confirmar el OTP. |
 | `user.trialEndsAt` | Fecha de fin del período de prueba (14 días por defecto). |
 | `accessToken` | JWT. Expira en `expiresIn` (15 min). Header: `Authorization: Bearer <token>`. |
@@ -82,7 +84,7 @@ Content-Type: application/json
 3. Usuario ingresa el código de 6 dígitos
 4. POST /auth/email-verification/confirm { email, code }
    → emailVerified: true, onboarding avanza a nextStep: "profile"
-5. App navega a pantalla de perfil (completar fullName)
+5. App navega a pantalla de perfil (completar firstName + lastName)
 ```
 
 ---

@@ -1,6 +1,6 @@
 # POST /auth/login
 
-Autentica a un usuario con email (o username) y contraseña. Retorna un access token JWT y un refresh token opaco.
+Autentica a un usuario con email y contraseña. Retorna un access token JWT y un refresh token opaco.
 
 ---
 
@@ -42,7 +42,8 @@ Content-Type: application/json
 {
   "user": {
     "id": "3f1b2c4d-...",
-    "fullName": null,
+    "firstName": null,
+    "lastName": null,
     "email": "ana@example.com",
     "username": null,
     "avatarUrl": null,
@@ -64,7 +65,8 @@ Cuando el usuario se registró pero no verificó su correo. El backend emite tok
 {
   "user": {
     "id": "3f1b2c4d-...",
-    "fullName": null,
+    "firstName": null,
+    "lastName": null,
     "email": "ana@example.com",
     "username": null,
     "avatarUrl": null,

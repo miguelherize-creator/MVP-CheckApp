@@ -91,10 +91,12 @@ Content-Type: application/json
   "message": "Correo verificado correctamente",
   "user": {
     "id": "3f1b2c4d-...",
-    "fullName": null,
+    "firstName": null,
+    "lastName": null,
     "email": "ana@example.com",
     "username": null,
     "avatarUrl": null,
+    "documentNumber": "12345678-5",
     "emailVerified": true,
     "trialEndsAt": "2026-05-25T00:00:00.000Z",
     "createdAt": "2026-05-11T12:00:00.000Z"

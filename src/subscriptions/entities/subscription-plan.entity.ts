@@ -6,6 +6,11 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+const decimalToNumber = {
+  to: (v: number) => v,
+  from: (v: string | null) => (v !== null && v !== undefined ? Number(v) : 0),
+};
+
 @Entity('subscription_plans')
 export class SubscriptionPlan {
   @PrimaryGeneratedColumn('uuid')
@@ -17,7 +22,7 @@ export class SubscriptionPlan {
   @Column({ type: 'varchar', length: 100, unique: true })
   slug: string;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2 })
+  @Column({ type: 'numeric', precision: 12, scale: 2, transformer: decimalToNumber })
   price: number;
 
   @Column({ type: 'varchar', length: 10, default: 'CLP' })
