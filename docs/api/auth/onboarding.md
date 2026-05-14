@@ -164,7 +164,7 @@ Estado completo actualizado (misma estructura que `GET /auth/onboarding`).
    → PATCH /auth/onboarding/step { currentStep: 'profile_basic', resumeSurface: 'onboarding' }
    → navegar a profile_basic
 
-4. PATCH /users/profile { fullName?, username? }
+4. PATCH /users/profile { firstName?, lastName?, username? }
    ← 200
    → PATCH /auth/onboarding/step { currentStep: 'welcome', resumeSurface: 'onboarding' }
    → navegar a welcome

@@ -11,7 +11,8 @@ Queries de uso frecuente durante desarrollo y pruebas. Ejecutar en pgAdmin → Q
 SELECT
     user_id,
     email,
-    full_name,
+    first_name,
+    last_name,
     username,
     email_verified_at,
     user_status_id,
@@ -26,7 +27,8 @@ WHERE email = 'test@example.com';
 SELECT
     user_id,
     email,
-    full_name,
+    first_name,
+    last_name,
     username,
     email_verified_at IS NOT NULL AS email_verified,
     created_at
@@ -48,7 +50,8 @@ ORDER BY deleted_at DESC;
 SELECT
     u.user_id,
     u.email,
-    u.full_name,
+    u.first_name,
+    u.last_name,
     u.username,
     u.email_verified_at IS NOT NULL   AS email_verified,
     s.code                            AS user_status,

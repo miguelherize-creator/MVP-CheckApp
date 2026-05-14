@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "walvy-modulo1-auth-onboarding-v1",
-    "name": "Walvy — Módulo 1: Auth & Onboarding",
-    "description": "Módulo 1 completo: registro, verificación de email, sesión, contraseña, onboarding y perfil.\n\n**Uso del Happy Path:**\n1. Ajusta las variables `email`, `password` y `documentNumber`.\n2. Ejecuta la carpeta '🚀 Happy Path' con Collection Runner.\n3. Después del paso 01 (Registro), revisa tu correo, copia el código OTP y pégalo en la variable `otpCode`.\n4. Continúa desde el paso 02 — el resto encadena automáticamente.\n\n**Chaining:** los pasos 02 al 08 usan `setNextRequest` para avanzar solos en Collection Runner.",
+    "name": "Walvy — API (Módulo 1 + Suscripciones)",
+    "description": "Colección completa: registro, verificación de email, sesión, contraseña, onboarding, perfil y suscripciones.\n\n**Uso del Happy Path:**\n1. Ajusta las variables `email`, `password` y `documentNumber`.\n2. Ejecuta la carpeta '🚀 Happy Path' con Collection Runner.\n3. Después del paso 01 (Registro), revisa tu correo, copia el código OTP y pégalo en la variable `otpCode`.\n4. Continúa desde el paso 02 — el resto encadena automáticamente.\n\n**Chaining:** los pasos 02 al 08 usan `setNextRequest` para avanzar solos en Collection Runner.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -14,7 +14,8 @@
     { "key": "refreshToken",   "value": "", "type": "string" },
     { "key": "userId",         "value": "", "type": "string" },
     { "key": "otpCode",        "value": "", "type": "string", "description": "Llenar manualmente con el OTP recibido por email (6 dígitos)" },
-    { "key": "resetOtpCode",   "value": "", "type": "string", "description": "Código OTP de 6 dígitos recibido por email para recuperar contraseña" }
+    { "key": "resetOtpCode",   "value": "", "type": "string", "description": "Código OTP de 6 dígitos recibido por email para recuperar contraseña" },
+    { "key": "planId",         "value": "", "type": "string", "description": "ID del plan obtenido de GET /subscriptions/plans (pro_monthly o pro_annual)" }
   ],
   "item": [
 
@@ -179,11 +180,11 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Test Usuario\",\n  \"username\": \"tester\"\n}",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Usuario\",\n  \"username\": \"tester\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{baseUrl}}/users/profile", "host": ["{{baseUrl}}"], "path": ["users", "profile"] },
-            "description": "Persiste nombre completo y alias. La app concatena nombre + apellido → `fullName` antes de enviar.\n\nAl menos uno de los dos campos debe tener valor."
+            "description": "Persiste nombre, apellido y/o alias. Al menos uno de los tres campos debe tener valor."
           },
           "event": [{
             "listen": "test",
@@ -191,7 +192,7 @@
               "exec": [
                 "if (pm.response.code === 200) {",
                 "    const res = pm.response.json();",
-                "    console.log('✅ Nombre guardado — fullName: ' + res.fullName + ' | username: ' + res.username);",
+                "    console.log('✅ Nombre guardado — firstName: ' + res.firstName + ' | lastName: ' + res.lastName + ' | username: ' + res.username);",
                 "    postman.setNextRequest('06 · Step → welcome');",
                 "} else {",
                 "    postman.setNextRequest(null);",
@@ -644,11 +645,11 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Ana Pérez\",\n  \"username\": \"Ani\"\n}",
+              "raw": "{\n  \"firstName\": \"Ana\",\n  \"lastName\": \"Pérez\",\n  \"username\": \"Ani\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{baseUrl}}/users/profile", "host": ["{{baseUrl}}"], "path": ["users", "profile"] },
-            "description": "Paso '¿Cómo quieres que te llamemos?' del onboarding.\n\nLa app concatena nombre + apellido → `fullName`. Al menos uno de los dos campos debe tener valor.\n\nValidación cruzada: si ambos están vacíos → 400."
+            "description": "Paso '¿Cómo quieres que te llamemos?' del onboarding.\n\nEnvía firstName, lastName y/o username por separado. Al menos uno debe tener valor.\n\nValidación cruzada: si todos están vacíos → 400."
           }
         },
 
@@ -662,11 +663,11 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Ana Pérez\",\n  \"username\": \"aniux\",\n  \"avatarUrl\": \"https://cdn.example.com/avatar.jpg\"\n}",
+              "raw": "{\n  \"firstName\": \"Ana\",\n  \"lastName\": \"Pérez\",\n  \"username\": \"aniux\",\n  \"avatarUrl\": \"https://cdn.example.com/avatar.jpg\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": { "raw": "{{baseUrl}}/users/me", "host": ["{{baseUrl}}"], "path": ["users", "me"] },
-            "description": "Actualiza perfil general (nombre, alias, avatar, email). Todos los campos son opcionales."
+            "description": "Actualiza perfil general (firstName, lastName, username, avatarUrl). Todos los campos son opcionales. El email no es modificable."
           }
         },
 
@@ -704,6 +705,95 @@
             "url": { "raw": "{{baseUrl}}/auth/biometric", "host": ["{{baseUrl}}"], "path": ["auth", "biometric"] },
             "description": "Usuario salta la biometría. Limpia `method` y `deviceId`. Igualmente marca `biometric_prompted = true`."
           }
+        }
+
+      ]
+    },
+
+    {
+      "name": "💳 Suscripciones",
+      "description": "Gestión de planes y pagos con Flow.cl.\n\n**Flujo de pago:**\n1. `GET /subscriptions/plans` → elige un plan y copia su `id` en la variable `planId`.\n2. `POST /subscriptions/checkout` → abre la `paymentUrl` en el navegador y completa el pago en Flow.\n3. Flow llama automáticamente al webhook del backend → suscripción activada.\n4. `GET /subscriptions/me` → confirma que el `status` pasó a `active`.\n\n**Precios actuales:** Pro Mensual 5.000 CLP / Pro Anual 50.000 CLP.",
+      "item": [
+
+        {
+          "name": "GET Planes disponibles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions/plans",
+              "host": ["{{baseUrl}}"],
+              "path": ["subscriptions", "plans"]
+            },
+            "description": "Público — no requiere autenticación.\n\nRetorna todos los planes activos. Copia el `id` del plan deseado en la variable `planId` antes de ejecutar el checkout.\n\nPlanes disponibles:\n- `pro_monthly` — 5.000 CLP/mes\n- `pro_annual` — 50.000 CLP/año (ahorra 10.000 CLP)"
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) {",
+                "    const plans = pm.response.json();",
+                "    const monthly = plans.find(p => p.slug === 'pro_monthly');",
+                "    if (monthly) {",
+                "        pm.collectionVariables.set('planId', monthly.id);",
+                "        console.log('✅ planId (pro_monthly) guardado: ' + monthly.id);",
+                "    }",
+                "    console.log('Planes disponibles: ' + plans.map(p => p.slug + ' — ' + p.price + ' ' + p.currency).join(' | '));",
+                "}"
+              ]
+            }
+          }]
+        },
+
+        {
+          "name": "GET Mi suscripción",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["subscriptions", "me"]
+            },
+            "description": "Retorna la suscripción activa del usuario autenticado.\n\nDevuelve `null` si el usuario no tiene suscripción (está en período de prueba o nunca pagó).\n\nValores de `status`: `trialing` · `active` · `past_due` · `cancelled` · `expired`"
+          }
+        },
+
+        {
+          "name": "POST Checkout (iniciar pago)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"planId\": \"{{planId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["subscriptions", "checkout"]
+            },
+            "description": "Inicia el proceso de pago en Flow.\n\nRetorna `{ paymentUrl }` — abrir esta URL en el navegador para completar el pago.\n\nTras el pago exitoso, Flow llama al webhook del backend y activa la suscripción automáticamente.\n\n**Requisito:** la variable `planId` debe estar cargada (ejecutar primero 'GET Planes disponibles')."
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 201) {",
+                "    const res = pm.response.json();",
+                "    console.log('✅ Checkout iniciado — abre esta URL para pagar: ' + res.paymentUrl);",
+                "} else {",
+                "    console.log('❌ Error checkout: ' + pm.response.text());",
+                "}"
+              ]
+            }
+          }]
         }
 
       ]

@@ -1,6 +1,6 @@
 # PATCH /users/profile
 
-Persiste el nombre y alias del usuario. Usado en el paso "¿Cómo quieres que te llamemos?" del onboarding y reutilizable desde el perfil.
+Persiste nombre, apellido y/o alias del usuario. Usado en el paso "¿Cómo quieres que te llamemos?" del onboarding.
 
 **Auth:** Requerida — Bearer access token.
 
@@ -19,36 +19,38 @@ Authorization: Bearer <accessToken>
 
 ### Mapeo de campos UI → backend
 
-La pantalla tiene 3 campos; el backend recibe 2:
+La pantalla tiene 3 campos y el backend los recibe por separado:
 
 | Campo UI | Campo API | Columna DB | Notas |
 |---|---|---|---|
-| Nombre | `fullName` | `full_name VARCHAR(200)` | La app concatena nombre + apellido antes de enviar |
-| Apellido | `fullName` | `full_name VARCHAR(200)` | Mismo campo — concatenado por la app |
+| Nombre | `firstName` | `first_name VARCHAR(100)` | Opcional, mín. 1 car. |
+| Apellido | `lastName` | `last_name VARCHAR(100)` | Opcional, mín. 1 car. |
 | Nombre preferido | `username` | `username VARCHAR(80)` | Alias de experiencia, no identificador |
 
 ### Body
 
 | Campo | Tipo | Requerido | Descripción |
 |---|---|---|---|
-| `fullName` | `string` | ❌ | Nombre completo (nombre + apellido concatenados) |
+| `firstName` | `string` | ❌ | Nombre del usuario |
+| `lastName` | `string` | ❌ | Apellido del usuario |
 | `username` | `string` | ❌ | Alias de experiencia. No único. |
 
-**Al menos uno debe llegar con valor no vacío.** Si ambos llegan vacíos o solo con espacios, el backend retorna 400.
+**Al menos uno debe llegar con valor no vacío.** Si todos llegan vacíos o solo con espacios, el backend retorna 400.
 
 ```
-✅  { "fullName": "Ana Pérez" }
+✅  { "firstName": "Ana" }
 ✅  { "username": "Ani" }
-✅  { "fullName": "Ana Pérez", "username": "Ani" }
+✅  { "firstName": "Ana", "lastName": "Pérez", "username": "Ani" }
 ❌  {}
-❌  { "fullName": "  ", "username": "" }
+❌  { "firstName": "  ", "lastName": "", "username": "" }
 ```
 
 ### Ejemplo
 
 ```json
 {
-  "fullName": "Ana Pérez",
+  "firstName": "Ana",
+  "lastName": "Pérez",
   "username": "Ani"
 }
 ```
@@ -62,13 +64,15 @@ La pantalla tiene 3 campos; el backend recibe 2:
 ```json
 {
   "id": "uuid-v4",
-  "fullName": "Ana Pérez",
-  "username": "Ani",
+  "firstName": "Ana",
+  "lastName": "Pérez",
   "email": "ana@example.com",
+  "username": "Ani",
   "avatarUrl": null,
+  "documentNumber": "12345678-9",
   "emailVerified": true,
-  "trialEndsAt": "2026-05-27T00:00:00.000Z",
-  "createdAt": "2026-05-13T09:00:00.000Z"
+  "trialEndsAt": "2026-06-14T00:00:00.000Z",
+  "createdAt": "2026-05-14T09:00:00.000Z"
 }
 ```
 
@@ -97,6 +101,6 @@ El endpoint es el mismo para ambos botones. La diferencia está en la llamada po
 
 ## Notas
 
-- `fullName` preserva el formato original (mayúsculas/minúsculas tal como lo envía la app).
+- `firstName` y `lastName` preservan el formato original (mayúsculas/minúsculas tal como los envía la app).
 - `username` preserva el formato original — es un alias de experiencia, no un handle técnico.
 - Este endpoint no modifica email ni avatar. Para eso usar `PATCH /users/me`.

@@ -22,13 +22,15 @@ Authorization: Bearer <accessToken>
 ```json
 {
   "id": "uuid-v4",
-  "fullName": "Ana Pérez",
-  "username": "Ani",
+  "firstName": "Ana",
+  "lastName": "Pérez",
   "email": "ana@example.com",
+  "username": "aniux",
   "avatarUrl": null,
+  "documentNumber": "12345678-9",
   "emailVerified": true,
-  "trialEndsAt": "2026-05-27T00:00:00.000Z",
-  "createdAt": "2026-05-13T09:00:00.000Z"
+  "trialEndsAt": "2026-06-14T00:00:00.000Z",
+  "createdAt": "2026-05-14T09:00:00.000Z"
 }
 ```
 
@@ -43,7 +45,7 @@ Authorization: Bearer <accessToken>
 
 ## PATCH /users/me
 
-Actualiza nombre, alias y avatar del usuario autenticado.
+Actualiza nombre, apellido, alias y avatar del usuario autenticado.
 
 El email **no es modificable** desde este endpoint — el correo queda fijo tras el registro.
 
@@ -59,15 +61,17 @@ Authorization: Bearer <accessToken>
 
 Todos los campos son opcionales. Solo se actualizan los que se envían.
 
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `fullName` | `string` | Nombre completo (nombre + apellido) |
-| `username` | `string` | Alias de experiencia |
-| `avatarUrl` | `string` | URL pública del avatar |
+| Campo | Tipo | Validación | Descripción |
+|---|---|---|---|
+| `firstName` | `string` | Mín. 1 car., máx. 100 | Nombre del usuario |
+| `lastName` | `string` | Mín. 1 car., máx. 100 | Apellido del usuario |
+| `username` | `string` | Mín. 3 car., máx. 50, solo `a-z0-9_.-` | Alias de experiencia |
+| `avatarUrl` | `string` | URL válida, máx. 500 car. | URL pública del avatar |
 
 ```json
 {
-  "fullName": "Ana Pérez",
+  "firstName": "Ana",
+  "lastName": "Pérez",
   "username": "aniux",
   "avatarUrl": "https://cdn.walvy.app/avatars/uuid.jpg"
 }
@@ -78,13 +82,15 @@ Todos los campos son opcionales. Solo se actualizan los que se envían.
 ```json
 {
   "id": "uuid-v4",
-  "fullName": "Ana Pérez",
-  "username": "aniux",
+  "firstName": "Ana",
+  "lastName": "Pérez",
   "email": "ana@example.com",
+  "username": "aniux",
   "avatarUrl": "https://cdn.walvy.app/avatars/uuid.jpg",
+  "documentNumber": "12345678-9",
   "emailVerified": true,
-  "trialEndsAt": "2026-05-27T00:00:00.000Z",
-  "createdAt": "2026-05-13T09:00:00.000Z"
+  "trialEndsAt": "2026-06-14T00:00:00.000Z",
+  "createdAt": "2026-05-14T09:00:00.000Z"
 }
 ```
 
@@ -92,7 +98,7 @@ Todos los campos son opcionales. Solo se actualizan los que se envían.
 
 | Status | Cuándo |
 |---|---|
-| `400` | Validación de campo inválida |
+| `400` | Valor de campo inválido (URL mal formada, alias con caracteres no permitidos, etc.) |
 | `401` | Access token ausente o expirado |
 | `404` | Usuario no encontrado |
 
@@ -102,7 +108,7 @@ Todos los campos son opcionales. Solo se actualizan los que se envían.
 
 | | `PATCH /users/me` | `PATCH /users/profile` |
 |---|---|---|
-| **Uso** | Perfil general (post-onboarding) | Paso de onboarding "¿Cómo te llamamos?" |
-| **Campos** | `fullName`, `username`, `avatarUrl` | `fullName`, `username` |
+| **Uso** | Pantalla "Mis datos" (post-onboarding) | Paso "¿Cómo te llamamos?" del onboarding |
+| **Campos** | `firstName`, `lastName`, `username`, `avatarUrl` | `firstName`, `lastName`, `username` |
+| **Validación cross-field** | Ninguna — todos opcionales | Al menos uno no vacío |
 | **Email** | No modificable | No modificable |
-| **Validación cross-field** | Ninguna (todo opcional) | Al menos uno no vacío |

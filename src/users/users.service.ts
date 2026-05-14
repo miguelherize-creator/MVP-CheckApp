@@ -29,7 +29,6 @@ export class UsersService {
     documentTypeId: number;
     acceptedTermsAt?: Date | null;
     acceptedPrivacyAt?: Date | null;
-    fullName?: string | null;
     trialDays?: number;
   }): Promise<User> {
     const normalizedEmail = data.email.trim().toLowerCase();
@@ -50,7 +49,8 @@ export class UsersService {
     const user = this.usersRepo.create({
       email: normalizedEmail,
       passwordHash,
-      fullName: data.fullName?.trim() ?? null,
+      firstName: null,
+      lastName: null,
       documentTypeId: data.documentTypeId,
       documentNumber: data.documentNumber.trim(),
       identifierType: 'email',
@@ -142,9 +142,8 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    if (dto.fullName !== undefined) {
-      user.fullName = dto.fullName.trim();
-    }
+    if (dto.firstName !== undefined) user.firstName = dto.firstName.trim();
+    if (dto.lastName  !== undefined) user.lastName  = dto.lastName.trim();
 
     if (dto.username !== undefined) {
       user.username = dto.username.trim().toLowerCase();
@@ -158,8 +157,8 @@ export class UsersService {
   }
 
   async updateDisplayName(userId: string, dto: UpdateDisplayNameDto): Promise<User> {
-    if (!dto.fullName?.trim() && !dto.username?.trim()) {
-      throw new BadRequestException('Debes ingresar al menos un nombre o alias');
+    if (!dto.firstName?.trim() && !dto.lastName?.trim() && !dto.username?.trim()) {
+      throw new BadRequestException('Debes ingresar al menos un nombre, apellido o alias');
     }
 
     const user = await this.findById(userId);
@@ -167,8 +166,9 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
-    if (dto.username !== undefined) user.username = dto.username.trim();
+    if (dto.firstName !== undefined) user.firstName = dto.firstName.trim();
+    if (dto.lastName  !== undefined) user.lastName  = dto.lastName.trim();
+    if (dto.username  !== undefined) user.username  = dto.username.trim();
 
     return this.usersRepo.save(user);
   }
@@ -192,10 +192,12 @@ export class UsersService {
   toPublic(user: User) {
     return {
       id: user.userId,
-      fullName: user.fullName,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       username: user.username,
       avatarUrl: user.avatarUrl,
+      documentNumber: user.documentNumber,
       emailVerified: !!user.emailVerifiedAt,
       trialEndsAt: user.trialEndsAt,
       createdAt: user.createdAt,

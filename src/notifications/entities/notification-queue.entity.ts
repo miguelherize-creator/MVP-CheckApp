@@ -20,7 +20,7 @@ export class NotificationQueue {
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', length: 10 })
   channel!: string;
 
   @Column({ type: 'jsonb' })
@@ -32,8 +32,11 @@ export class NotificationQueue {
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })
   sentAt!: Date | null;
 
-  @Column({ name: 'bills_payable_id', type: 'uuid', nullable: true })
-  billsPayableId!: string | null;
+  @Column({ name: 'reference_type', type: 'text', nullable: true })
+  referenceType!: string | null;
+
+  @Column({ name: 'reference_id', type: 'uuid', nullable: true })
+  referenceId!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
