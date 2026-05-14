@@ -2,15 +2,19 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateDisplayNameDto {
-  @ApiPropertyOptional({
-    example: 'Ana Pérez',
-    description: 'Nombre completo — la app concatena nombre + apellido antes de enviar',
-  })
+  @ApiPropertyOptional({ example: 'Ana' })
   @IsOptional()
   @IsString()
-  @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
-  @MaxLength(200)
-  fullName?: string;
+  @MinLength(1, { message: 'El nombre debe tener al menos 1 carácter' })
+  @MaxLength(100)
+  firstName?: string;
+
+  @ApiPropertyOptional({ example: 'Pérez' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1, { message: 'El apellido debe tener al menos 1 carácter' })
+  @MaxLength(100)
+  lastName?: string;
 
   @ApiPropertyOptional({
     example: 'Ani',
