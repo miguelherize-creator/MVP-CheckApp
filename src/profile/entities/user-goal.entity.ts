@@ -21,11 +21,11 @@ export class UserGoal {
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  @Column({ name: 'goal_type', type: 'varchar', length: 50 })
+  @Column({ name: 'goal_type', type: 'varchar', length: 40 })
   goalType!: string;
 
-  @Column({ name: 'target_value', type: 'decimal', precision: 19, scale: 4, nullable: true })
-  targetValue!: string | null;
+  @Column({ name: 'target_value', type: 'decimal', precision: 19, scale: 4, nullable: true, transformer: { from: (v: string | null) => v === null ? null : parseFloat(v), to: (v: number | null) => v } })
+  targetValue!: number | null;
 
   @Column({ name: 'declared_at', type: 'timestamptz' })
   declaredAt!: Date;

@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: walvy
       POSTGRES_DB: walvy
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - walvy_pg_data:/var/lib/postgresql/data
     healthcheck:

@@ -1,69 +1,73 @@
 import { renderEmailShell, EMAIL_TOKENS } from './base';
 
-const { color: C, font: F } = EMAIL_TOKENS;
+const { color: C } = EMAIL_TOKENS;
+
+/** Aptos es la tipografía de la marca; Segoe UI y Arial como fallback de email. */
+const F = "'Aptos','Segoe UI',Helvetica,Arial,sans-serif";
+
+// Dos bloques de 3 dígitos separados por espacio, p. ej. `123 456`.
+function formatOtpTwoBlocks(code: string): string {
+  const digits = code.replace(/\D/g, '');
+  if (digits.length === 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+  return code.trim();
+}
 
 export interface EmailVerificationVars {
-  fullName: string;
-  verifyUrl: string;
+  code: string;
+  expiresMinutes: number;
   mascotUrl: string;
   logoUrl: string;
-  /** Watermark (Supabase). Si falta, `base` usa SVG embebido `data:`. */
   isotypeUrl?: string;
 }
 
 export function emailVerificationHtml(v: EmailVerificationVars): string {
-  const contentRows = `<tr>
-              <td style="padding-bottom:24px;text-align:center;">
-                <p style="margin:0;font-size:24px;font-weight:700;color:${C.heading};line-height:32px;font-family:${F};">
-                  Hola ${v.fullName},
+  const otpDisplay = formatOtpTwoBlocks(v.code);
+
+  const contentRows = `
+            <tr>
+              <td style="padding-bottom:40px;text-align:center;">
+                <p style="margin:0;font-size:24px;font-weight:600;color:${C.heading};line-height:32px;font-family:${F};">
+                  Hola
                 </p>
-                <p style="margin:4px 0 0;font-size:20px;font-weight:600;color:${C.subheading};line-height:28px;font-family:${F};">
+                <p style="margin:0;font-size:20px;font-weight:600;color:${C.subheading};line-height:normal;font-family:${F};">
                   que bueno tenerte por aquí
                 </p>
               </td>
             </tr>
 
             <tr>
-              <td style="padding-bottom:32px;text-align:center;">
-                <p class="body-text" style="margin:0;font-size:16px;font-weight:600;color:${C.body};line-height:26px;font-family:${F};">
-                  Estamos listos para ayudarte a organizar tus deudas y que tu sueldo rinda más. Pero primero confirmemos tu cuenta.
+              <td style="padding-bottom:40px;text-align:center;">
+                <p style="margin:0;font-size:16px;font-weight:600;color:${C.body};line-height:24px;font-family:${F};">
+                  Usa este código para confirmar tu cuenta y seguir<br />poniendo tu mes en claro.
                 </p>
               </td>
             </tr>
 
             <tr>
-              <td align="center" style="padding-bottom:32px;">
-                <!--[if mso]>
-                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml"
-                             xmlns:w="urn:schemas-microsoft-com:office:word"
-                             href="${v.verifyUrl}" style="height:48px;width:260px;v-text-anchor:middle;"
-                             arcsize="50%" fillcolor="${C.primary}" strokecolor="${C.primary}">
-                  <w:anchorlock/>
-                  <center style="color:${C.textOnDark};font-size:16px;font-weight:700;">
-                    Confirmar mi cuenta
-                  </center>
-                </v:roundrect>
-                <![endif]-->
-                <!--[if !mso]><!-->
-                <a class="cta-btn" href="${v.verifyUrl}"
-                   style="display:inline-block;background-color:${C.primary};color:${C.textOnDark};font-family:${F};
-                          font-size:16px;font-weight:700;text-decoration:none;border-radius:100px;padding:14px 48px;
-                          min-width:220px;text-align:center;mso-hide:all;">
-                  Confirmar mi cuenta
-                </a>
-                <!--<![endif]-->
+              <td align="center" style="padding-bottom:40px;">
+                <p style="margin:0;font-size:24px;font-weight:700;color:${C.heading};line-height:32px;font-family:${F};text-align:center;">
+                  ${otpDisplay}
+                </p>
               </td>
             </tr>
 
             <tr>
               <td style="padding-bottom:40px;text-align:center;">
-                <p style="margin:0 0 12px;font-size:14px;color:${C.muted};font-weight:600;line-height:20px;font-family:${F};">
-                  Si lo prefieres, copia y pega este enlace en tu navegador
+                <p style="margin:0;font-size:16px;font-weight:600;color:${C.body};line-height:24px;font-family:${F};">
+                  Ingresa este código en la app para continuar.<br />
+                  Expira en <strong>${v.expiresMinutes} minutos</strong>.
                 </p>
-                <a class="alt-link" href="${v.verifyUrl}"
-                   style="font-size:13px;color:${C.link};text-decoration:underline;word-break:break-all;line-height:20px;font-family:${F};">
-                  ${v.verifyUrl}
-                </a>
+              </td>
+            </tr>`;
+
+  const postDividerRows = `<tr>
+              <td style="padding-bottom:12px;text-align:center;">
+                <p style="margin:0;font-size:12px;font-weight:400;color:${C.muted};line-height:normal;font-family:${F};">
+                  Si no solicitaste este código, puedes ignorar este correo.
+                </p>
+                <p style="margin:2px 0 0;font-size:12px;font-weight:400;color:${C.muted};line-height:normal;font-family:${F};">
+                  Este es un correo generado de forma automática, por favor no respondas este mensaje.
+                </p>
               </td>
             </tr>`;
 
@@ -73,5 +77,7 @@ export function emailVerificationHtml(v: EmailVerificationVars): string {
     logoUrl:    v.logoUrl,
     isotypeUrl: v.isotypeUrl,
     contentRows,
+    postDividerRows,
+    omitFooterDisclaimer: true,
   });
 }

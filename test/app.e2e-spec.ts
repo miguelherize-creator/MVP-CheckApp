@@ -1,32 +1,36 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '../src/app.module';
+import { createTestApp, TestApp } from './helpers/app.helper';
 
-describe('Walvy API (e2e)', () => {
-  let app: INestApplication;
+describe('Health (e2e)', () => {
+  let testApp: TestApp;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
-    await app.init();
+    testApp = await createTestApp();
   });
 
   afterAll(async () => {
-    await app.close();
+    await testApp.app.close();
   });
 
-  it('/users/me sin token responde 401', () => {
-    return request(app.getHttpServer()).get('/users/me').expect(401);
+  it('GET / returns service info', async () => {
+    const res = await request(testApp.app.getHttpServer())
+      .get('/')
+      .expect(200);
+
+    expect(res.body.service).toBe('walvy-api');
+  });
+
+  it('GET /health returns { ok: true }', async () => {
+    const res = await request(testApp.app.getHttpServer())
+      .get('/health')
+      .expect(200);
+
+    expect(res.body.ok).toBe(true);
+  });
+
+  it('GET /users/me returns 401 without token', async () => {
+    await request(testApp.app.getHttpServer())
+      .get('/users/me')
+      .expect(401);
   });
 });

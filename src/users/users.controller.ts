@@ -13,6 +13,7 @@ import { AuthService } from '../auth/auth.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateDisplayNameDto } from './dto/update-display-name.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('users')
@@ -38,13 +39,28 @@ export class UsersController {
   @Patch('me')
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({
-    summary: 'Actualizar perfil (nombre, apellido, alias/username, correo)',
+    summary: 'Actualizar perfil (firstName, lastName, username, avatarUrl)',
   })
   async updateMe(
     @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateProfileDto,
   ) {
     const u = await this.usersService.updateProfile(user.sub, dto);
+    return this.usersService.toPublic(u);
+  }
+
+  @Patch('profile')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'Guardar nombre y alias (paso de onboarding)',
+    description:
+      'Persiste firstName, lastName y/o username. Al menos uno debe llegar con valor no vacío.',
+  })
+  async updateProfile(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateDisplayNameDto,
+  ) {
+    const u = await this.usersService.updateDisplayName(user.sub, dto);
     return this.usersService.toPublic(u);
   }
 

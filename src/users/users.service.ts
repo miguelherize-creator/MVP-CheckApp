@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -8,109 +9,91 @@ import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateDisplayNameDto } from './dto/update-display-name.dto';
+import { CatalogSeedService } from '../catalog/catalog-seed.service';
 
 const BCRYPT_ROUNDS = 12;
-
-/** Normaliza RUT: elimina puntos y pone K en mayúscula. Ej: "12.345.678-k" → "12345678-K" */
-function normalizeRut(rut: string): string {
-  return rut.replace(/\./g, '').toUpperCase();
-}
-
-/** Detecta si el identificador de login es un RUT chileno normalizado. */
-function isRutFormat(identifier: string): boolean {
-  return /^\d{7,8}-[\dK]$/.test(identifier);
-}
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
+    private readonly catalogSeed: CatalogSeedService,
   ) {}
 
   async create(data: {
-    firstName: string;
-    lastName: string;
     email: string;
-    rut: string;
     password: string;
+    documentNumber: string;
+    documentTypeId: number;
     acceptedTermsAt?: Date | null;
     acceptedPrivacyAt?: Date | null;
+    trialDays?: number;
   }): Promise<User> {
     const normalizedEmail = data.email.trim().toLowerCase();
-    const normalizedRut = normalizeRut(data.rut.trim());
 
     const emailExists = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
     if (emailExists) {
       throw new ConflictException('Ya existe una cuenta con este correo electrónico');
     }
 
-    const rutExists = await this.usersRepo.findOne({ where: { rut: normalizedRut } });
-    if (rutExists) {
-      throw new ConflictException('Ya existe una cuenta con este RUT');
-    }
-
     const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+    const defaults = this.catalogSeed.getDefaults();
+
+    const now = new Date();
+    const trialEndsAt = data.trialDays
+      ? new Date(now.getTime() + data.trialDays * 24 * 60 * 60 * 1000)
+      : null;
 
     const user = this.usersRepo.create({
-      firstName: data.firstName.trim(),
-      lastName: data.lastName.trim(),
       email: normalizedEmail,
-      rut: normalizedRut,
-      username: null,
       passwordHash,
+      firstName: null,
+      lastName: null,
+      documentTypeId: data.documentTypeId,
+      documentNumber: data.documentNumber.trim(),
+      identifierType: 'email',
+      countryId: defaults.countryId,
+      defaultCurrencyId: defaults.currencyId,
+      roleId: defaults.roleId,
+      userStatusId: defaults.pendingVerificationStatusId,
       acceptedTermsAt: data.acceptedTermsAt ?? null,
       acceptedPrivacyAt: data.acceptedPrivacyAt ?? null,
       emailVerifiedAt: null,
+      username: null,
+      avatarUrl: null,
+      notificationEmail: null,
+      notificationEmailVerifiedAt: null,
+      authProvider: null,
+      authProviderUserId: null,
+      trialStartedAt: trialEndsAt ? now : null,
+      trialEndsAt,
+      currentFinancialHealthLevelId: null,
+      financialHealthUpdatedAt: null,
     });
 
     return this.usersRepo.save(user);
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.usersRepo.findOne({ where: { id } });
+    return this.usersRepo.findOne({ where: { userId: id } });
   }
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepo.findOne({ where: { email: email.trim().toLowerCase() } });
   }
 
-  async findByRut(rut: string): Promise<User | null> {
-    return this.usersRepo.findOne({ where: { rut: normalizeRut(rut.trim()) } });
-  }
-
   async findByUsername(username: string): Promise<User | null> {
     return this.usersRepo.findOne({ where: { username: username.trim().toLowerCase() } });
   }
 
-  /**
-   * Busca usuario por cualquier identificador de login (email, RUT o username).
-   * Incluye passwordHash para validación de credenciales.
-   */
-  async findByIdentifierWithPassword(identifier: string): Promise<User | null> {
-    const trimmed = identifier.trim();
-
-    if (trimmed.includes('@')) {
-      return this.usersRepo
-        .createQueryBuilder('user')
-        .addSelect('user.passwordHash')
-        .where('LOWER(user.email) = :email', { email: trimmed.toLowerCase() })
-        .getOne();
-    }
-
-    const normalized = normalizeRut(trimmed);
-    if (isRutFormat(normalized)) {
-      return this.usersRepo
-        .createQueryBuilder('user')
-        .addSelect('user.passwordHash')
-        .where('user.rut = :rut', { rut: normalized })
-        .getOne();
-    }
-
+  async findByEmailWithPassword(email: string): Promise<User | null> {
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('LOWER(user.username) = :username', { username: trimmed.toLowerCase() })
+      .where('LOWER(user.email) = :email', { email: email.trim().toLowerCase() })
+      .andWhere('user.deletedAt IS NULL')
       .getOne();
   }
 
@@ -118,7 +101,8 @@ export class UsersService {
     return this.usersRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('user.id = :id', { id })
+      .where('user.userId = :id', { id })
+      .andWhere('user.deletedAt IS NULL')
       .getOne();
   }
 
@@ -128,18 +112,14 @@ export class UsersService {
 
   async updatePassword(userId: string, newPlainPassword: string): Promise<void> {
     const passwordHash = await bcrypt.hash(newPlainPassword, BCRYPT_ROUNDS);
-    const res = await this.usersRepo.update(userId, { passwordHash });
+    const res = await this.usersRepo.update({ userId }, { passwordHash });
     if (!res.affected) {
       throw new NotFoundException('Usuario no encontrado');
     }
   }
 
-  /**
-   * Guarda un correo nuevo (sin verificar) en el perfil del usuario.
-   * Usado al solicitar verificación de un email diferente al actual.
-   */
   async setPendingEmail(userId: string, email: string): Promise<void> {
-    await this.usersRepo.update(userId, {
+    await this.usersRepo.update({ userId }, {
       email: email.toLowerCase(),
       emailVerifiedAt: null,
     });
@@ -152,6 +132,7 @@ export class UsersService {
     }
     user.email = email.toLowerCase();
     user.emailVerifiedAt = new Date();
+    user.userStatusId = this.catalogSeed.getDefaults().activeStatusId;
     return this.usersRepo.save(user);
   }
 
@@ -161,48 +142,64 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    if (dto.firstName !== undefined) {
-      user.firstName = dto.firstName.trim();
-    }
-
-    if (dto.lastName !== undefined) {
-      user.lastName = dto.lastName.trim();
-    }
+    if (dto.firstName !== undefined) user.firstName = dto.firstName.trim();
+    if (dto.lastName  !== undefined) user.lastName  = dto.lastName.trim();
 
     if (dto.username !== undefined) {
-      const normalizedUsername = dto.username.trim().toLowerCase();
-      const existing = await this.usersRepo.findOne({ where: { username: normalizedUsername } });
-      if (existing && existing.id !== userId) {
-        throw new ConflictException('Este nombre de usuario ya está en uso');
-      }
-      user.username = normalizedUsername;
+      user.username = dto.username.trim().toLowerCase();
     }
 
-    if (dto.email !== undefined) {
-      const normalizedEmail = dto.email.toLowerCase();
-      if (normalizedEmail !== user.email) {
-        const existing = await this.usersRepo.findOne({ where: { email: normalizedEmail } });
-        if (existing && existing.id !== userId) {
-          throw new ConflictException('Este correo ya está registrado por otra cuenta');
-        }
-        user.email = normalizedEmail;
-        user.emailVerifiedAt = null;
-      }
+    if (dto.avatarUrl !== undefined) {
+      user.avatarUrl = dto.avatarUrl;
     }
+
+    return this.usersRepo.save(user);
+  }
+
+  async updateDisplayName(userId: string, dto: UpdateDisplayNameDto): Promise<User> {
+    if (!dto.firstName?.trim() && !dto.lastName?.trim() && !dto.username?.trim()) {
+      throw new BadRequestException('Debes ingresar al menos un nombre, apellido o alias');
+    }
+
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (dto.firstName !== undefined) user.firstName = dto.firstName.trim();
+    if (dto.lastName  !== undefined) user.lastName  = dto.lastName.trim();
+    if (dto.username  !== undefined) user.username  = dto.username.trim();
+
+    return this.usersRepo.save(user);
+  }
+
+  async updateDisplayName(userId: string, dto: UpdateDisplayNameDto): Promise<User> {
+    if (!dto.fullName?.trim() && !dto.username?.trim()) {
+      throw new BadRequestException('Debes ingresar al menos un nombre o alias');
+    }
+
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
+    if (dto.username !== undefined) user.username = dto.username.trim();
 
     return this.usersRepo.save(user);
   }
 
   toPublic(user: User) {
     return {
-      id: user.id,
+      id: user.userId,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
-      rut: user.rut,
       username: user.username,
-      emailVerifiedAt: user.emailVerifiedAt,
+      avatarUrl: user.avatarUrl,
+      documentNumber: user.documentNumber,
       emailVerified: !!user.emailVerifiedAt,
+      trialEndsAt: user.trialEndsAt,
       createdAt: user.createdAt,
     };
   }

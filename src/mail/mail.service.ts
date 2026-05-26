@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { emailVerificationHtml } from './templates/email-verification.template';
-import { passwordResetHtml } from './templates/password-reset.template';
+import { passwordResetOtpHtml } from './templates/password-reset-otp.template';
 
 @Injectable()
 export class MailService {
@@ -32,7 +32,6 @@ export class MailService {
     }
   }
 
-  // ─── Imágenes del email — configurar en .env ────────────────────────────────
   private get mascotUrl(): string {
     return this.config.get<string>('MAIL_MASCOT_URL', 'https://walvy.app/assets/mascot-email.png');
   }
@@ -50,7 +49,6 @@ export class MailService {
     return this.config.get<string>('MAIL_FROM', 'Walvy <no-reply@walvy.app>');
   }
 
-  // ─── Envío interno ──────────────────────────────────────────────────────────
   private async send(to: string, subject: string, html: string): Promise<void> {
     if (!this.transporter) {
       this.logger.log(`[MAIL-LOG] To: ${to} | Subject: ${subject}\n${html}`);
@@ -65,46 +63,34 @@ export class MailService {
     }
   }
 
-  // ─── Verificación de email (magic link) ────────────────────────────────────
-  async sendEmailVerificationLink(
-    to: string,
-    firstName: string,
-    lastName: string,
-    verifyUrl: string,
-  ): Promise<void> {
-    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'usuario';
-    const subject  = `${firstName || 'Hola'}, confirma tu cuenta en Walvy`;
+  async sendEmailVerificationCode(to: string, code: string): Promise<void> {
+    const expiresMinutes = this.config.get<number>('EMAIL_VERIFICATION_EXPIRES_MINUTES', 15);
+    const subject        = 'Confirma tu cuenta en Walvy';
 
     const html = emailVerificationHtml({
-      fullName,
-      verifyUrl,
-      mascotUrl:  this.mascotUrl,
-      logoUrl:    this.logoUrl,
-      isotypeUrl: this.isotypeUrl,
-    });
-
-    await this.send(to, subject, html);
-    this.logger.log(`Enlace de verificación enviado a ${to}`);
-  }
-
-  // ─── Recuperación de contraseña ─────────────────────────────────────────────
-  async sendPasswordResetEmail(to: string, plainToken: string): Promise<void> {
-    const template        = this.config.get<string>('PASSWORD_RESET_URL_TEMPLATE', '');
-    const expiresMinutes  = this.config.get<number>('PASSWORD_RESET_EXPIRES_MINUTES', 60);
-
-    const resetUrl = template.includes('{{token}}')
-      ? template.replace('{{token}}', encodeURIComponent(plainToken))
-      : `${template}${template.includes('?') ? '&' : '?'}token=${encodeURIComponent(plainToken)}`;
-
-    const html = passwordResetHtml({
-      resetUrl,
+      code,
       expiresMinutes,
       mascotUrl:  this.mascotUrl,
       logoUrl:    this.logoUrl,
       isotypeUrl: this.isotypeUrl,
     });
 
-    await this.send(to, 'Recupera tu contraseña en Walvy', html);
-    this.logger.log(`Email de recuperación enviado a ${to}`);
+    await this.send(to, subject, html);
+    this.logger.log(`Código de verificación enviado a ${to}`);
+  }
+
+  async sendPasswordResetOtp(to: string, code: string): Promise<void> {
+    const expiresMinutes = this.config.get<number>('PASSWORD_RESET_EXPIRES_MINUTES', 15);
+
+    const html = passwordResetOtpHtml({
+      code,
+      expiresMinutes,
+      mascotUrl:  this.mascotUrl,
+      logoUrl:    this.logoUrl,
+      isotypeUrl: this.isotypeUrl,
+    });
+
+    await this.send(to, 'Restablece tu contraseña en Walvy', html);
+    this.logger.log(`Código OTP de recuperación enviado a ${to}`);
   }
 }

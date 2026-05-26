@@ -24,7 +24,7 @@ export class AlertPreferences {
   @Column({ name: 'alert_type', type: 'varchar' })
   alertType!: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', length: 10 })
   channel!: string;
 
   @Column({ type: 'boolean', default: true })

@@ -3,15 +3,13 @@ import {
   Controller,
   Get,
   Logger,
-  Param,
+  Patch,
   Post,
-  Redirect,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -20,6 +18,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RequestEmailVerificationDto } from './dto/request-email-verification.dto';
 import { ConfirmEmailVerificationDto } from './dto/confirm-email-verification.dto';
+import { UpdateBiometricDto } from './dto/update-biometric.dto';
+import { UpdateOnboardingStepDto } from './dto/update-onboarding-step.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
@@ -29,13 +29,39 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(
-    private readonly authService: AuthService,
-    private readonly config: ConfigService,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @ApiOperation({ summary: 'Registro de usuario' })
+  @ApiOperation({
+    summary: 'Registro de usuario',
+    description:
+      'Crea una cuenta nueva. El email queda pendiente de verificación: ' +
+      'se envía un código OTP de 6 dígitos al correo del usuario.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuario creado correctamente',
+    schema: {
+      example: {
+        user: {
+          id: 'uuid-v4',
+          fullName: 'Ana Pérez',
+          email: 'ana@example.com',
+          username: null,
+          avatarUrl: null,
+          emailVerified: false,
+          trialEndsAt: '2026-05-25T00:00:00.000Z',
+          createdAt: '2026-05-11T12:00:00.000Z',
+        },
+        accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        refreshToken: 'opaque-token-string',
+        expiresIn: '15m',
+        nextStep: 'email_verification',
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Validación fallida (contraseñas no coinciden, términos no aceptados, etc.)' })
+  @ApiResponse({ status: 409, description: 'Ya existe una cuenta con ese correo' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -59,6 +85,14 @@ export class AuthController {
     return this.authService.logout(dto.refreshToken);
   }
 
+  @Post('logout-all')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Cerrar sesión en todos los dispositivos' })
+  logoutAll(@CurrentUser() user: JwtPayload) {
+    return this.authService.logoutAll(user.sub);
+  }
+
   @Post('forgot-password')
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Solicitar recuperación de contraseña' })
@@ -67,77 +101,21 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  @ApiOperation({ summary: 'Restablecer contraseña con token' })
+  @ApiOperation({ summary: 'Restablecer contraseña con código OTP' })
   resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto.token, dto.newPassword);
-  }
-
-  /**
-   * Endpoint público — recibe el token del magic link del correo.
-   * Verifica la cuenta y redirige al deep link de la app con el resultado.
-   * URL del email: GET /auth/email-verification/confirm/:token
-   */
-  @Get('email-verification/confirm/:token')
-  @ApiOperation({
-    summary: 'Confirmar email vía magic link (enlace del correo, sin JWT)',
-    description:
-      'El usuario llega aquí al hacer clic en el enlace del correo de verificación. ' +
-      'Si el token es válido, marca el email como verificado y redirige al deep link de la app. ' +
-      'Si es inválido/expirado, redirige con status=error.',
-  })
-  @Redirect()
-  async confirmEmailViaLink(@Param('token') token: string) {
-    const legacyBase = this.config.get<string>(
-      'CONFIRM_ACCOUNT_URL',
-      'http://localhost:8081/confirm-account',
-    );
-    const successBase = this.config.get<string>(
-      'EMAIL_VERIFY_REDIRECT_SUCCESS_WEB',
-      legacyBase,
-    );
-    const errorBase = this.config.get<string>(
-      'EMAIL_VERIFY_REDIRECT_ERROR_WEB',
-      legacyBase,
-    );
-
-    try {
-      const result = await this.authService.confirmEmailVerificationByToken(token);
-      return {
-        url: this.buildRedirectUrl(successBase, {
-          status: 'success',
-          name: result.user?.firstName ?? '',
-        }),
-      };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`email-verification/confirm failed: ${msg}`);
-      return {
-        url: this.buildRedirectUrl(errorBase, { status: 'error' }),
-      };
-    }
-  }
-
-  private buildRedirectUrl(base: string, params: Record<string, string>): string {
-    const hasQuery = base.includes('?');
-    const query = Object.entries(params)
-      .filter(([, value]) => value !== '')
-      .map(
-        ([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
-      )
-      .join('&');
-
-    if (!query) return base;
-    return `${base}${hasQuery ? '&' : '?'}${query}`;
+    return this.authService.resetPassword(dto.email, dto.code, dto.newPassword);
   }
 
   @Post('email-verification/request')
   @UseGuards(AuthGuard('jwt'))
+  @Throttle({ short: { limit: 3, ttl: 3600000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Solicitar código de verificación de correo',
+    summary: 'Solicitar código OTP de verificación de correo',
     description:
-      'Se llama automáticamente post-registro. También permite solicitar verificación ' +
-      'tras un cambio de correo vía perfil.',
+      'Envía un código de 6 dígitos al email indicado. ' +
+      'Invalida cualquier código previo pendiente. ' +
+      'Usar también para reenviar tras un cambio de correo.',
   })
   requestEmailVerification(
     @CurrentUser() user: JwtPayload,
@@ -150,7 +128,12 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Confirmar código de verificación de correo (6 dígitos)' })
+  @ApiOperation({
+    summary: 'Confirmar código OTP de 6 dígitos',
+    description:
+      'Valida el código recibido por correo. ' +
+      'Máximo 5 intentos; al superarlos el código se invalida y hay que solicitar uno nuevo.',
+  })
   confirmEmailVerification(
     @CurrentUser() user: JwtPayload,
     @Body() dto: ConfirmEmailVerificationDto,
@@ -160,13 +143,56 @@ export class AuthController {
 
   @Post('email-verification/resend')
   @UseGuards(AuthGuard('jwt'))
-  @Throttle({ short: { limit: 3, ttl: 60000 } })
+  @Throttle({ short: { limit: 3, ttl: 3600000 } })
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Reenviar código de verificación (invalida el anterior)' })
+  @ApiOperation({
+    summary: 'Reenviar código OTP (invalida el anterior)',
+    description: 'Máximo 3 reenvíos por hora.',
+  })
   resendEmailVerification(
     @CurrentUser() user: JwtPayload,
     @Body() dto: RequestEmailVerificationDto,
   ) {
     return this.authService.requestEmailVerification(user.sub, dto.email);
+  }
+
+  @Patch('biometric')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Activar o desactivar autenticación biométrica',
+    description:
+      'Al activar (`enabled: true`), `method` es obligatorio. ' +
+      'Al desactivar, `method` y `deviceId` se limpian automáticamente.',
+  })
+  updateBiometric(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateBiometricDto,
+  ) {
+    return this.authService.updateBiometric(user.sub, dto);
+  }
+
+  @Get('onboarding')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Obtener estado del onboarding del usuario' })
+  getOnboarding(@CurrentUser() user: JwtPayload) {
+    return this.authService.getOnboarding(user.sub);
+  }
+
+  @Patch('onboarding/step')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Actualizar paso del onboarding',
+    description:
+      'Actualiza campos seleccionados del onboarding. ' +
+      'Cuando todos los checkpoints están en true, el backend avanza automáticamente a `completed`.',
+  })
+  updateOnboardingStep(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateOnboardingStepDto,
+  ) {
+    return this.authService.updateOnboardingStep(user.sub, dto);
   }
 }

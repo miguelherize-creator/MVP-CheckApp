@@ -1,0 +1,85 @@
+// Módulo 2 — Perfil y Configuración
+// Dependencias entrantes: app_user (M1), currency (M1)
+// Dependencias salientes: M3 (Home), M4 (Motor Deudas), M5 (Presupuestos), M7 (Pagos)
+
+// ─────────────────────────────────────────────────────
+// Referencias externas (Módulo 1)
+// ─────────────────────────────────────────────────────
+
+Table app_user [note: 'ref: Módulo 1'] {
+  user_id             uuid        [pk]
+  email               varchar(320) [unique]
+  full_name           varchar(200)
+  username            varchar(80)  [unique, note: 'Alias visible del usuario']
+  avatar_url          varchar(500) [note: 'URL de la foto de perfil (S3/storage)']
+  default_currency_id bigint
+}
+
+Table currency [note: 'ref: Módulo 1'] {
+  currency_id bigint [pk]
+  code        char(3)
+  name        varchar(80)
+}
+
+// ─────────────────────────────────────────────────────
+// Módulo 2 — Tablas propias
+// ─────────────────────────────────────────────────────
+
+Table user_financial_profile {
+  user_id                    uuid        [pk, ref: - app_user.user_id, note: 'PK compartida — relación 1:1 con app_user']
+  monthly_income_estimate    decimal     [null, note: 'Ingreso mensual estimado declarado por el usuario']
+  stable_expenses_note       text        [null, note: 'Nota libre sobre gastos fijos (arriendo, colegiaturas, etc.)']
+  estimated_payment_capacity decimal     [null, note: 'Calculado: income − gastos estimados. Alimenta Bola de Nieve']
+  currency_id                bigint      [null, ref: > currency.currency_id]
+  updated_at                 timestamptz [not null, default: `now()`]
+}
+
+Table user_goals {
+  id             uuid        [pk, default: `gen_random_uuid()`]
+  user_id        uuid        [not null, ref: > app_user.user_id]
+  goal_type      varchar(40) [not null, note: "reduce_debt | save_amount | improve_savings_capacity | avoid_late_payments | meet_budget | other"]
+  target_value   decimal     [null, note: 'Requerido para metas cuantitativas (save_amount, reduce_debt)']
+  declared_at    timestamptz [not null, default: `now()`]
+  progress_cache jsonb       [null, note: 'Cache calculado por job periódico — no lo escribe el usuario']
+  is_active      boolean     [not null, default: true]
+  created_at     timestamptz [not null, default: `now()`]
+  updated_at     timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_id) [name: 'idx_ug_user_id']
+  }
+}
+
+Table alert_preferences {
+  id           uuid        [pk, default: `gen_random_uuid()`]
+  user_id      uuid        [not null, ref: > app_user.user_id]
+  alert_type   text        [not null, note: 'budget_threshold | payment_due | weekly_reminder | semaphore_alert']
+  channel      varchar(10) [not null, note: "in_app | push | email"]
+  enabled      boolean     [not null, default: true]
+  intensity    text        [null, note: "low | medium | high"]
+  cadence_days int         [null, note: 'Días mínimos entre alertas del mismo tipo']
+  created_at   timestamptz [not null, default: `now()`]
+  updated_at   timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_id, alert_type, channel) [unique, name: 'uq_alert_pref_user_type_channel']
+    (user_id) [name: 'idx_ap_user_id']
+  }
+}
+
+Table notification_queue {
+  id             uuid        [pk, default: `gen_random_uuid()`]
+  user_id        uuid        [not null, ref: > app_user.user_id]
+  channel        varchar(10) [not null, note: "in_app | push | email"]
+  payload        jsonb       [not null, note: 'JSON con título, cuerpo, deep link']
+  scheduled_for  timestamptz [not null, note: 'Momento en que el worker debe despachar']
+  sent_at        timestamptz [null, note: 'NULL hasta que el worker confirma el envío']
+  reference_type text        [null, note: 'Entidad origen. Ej: user_payment, debt']
+  reference_id   uuid        [null, note: 'ID de la entidad origen']
+  created_at     timestamptz [not null, default: `now()`]
+
+  indexes {
+    (scheduled_for) [name: 'idx_nq_pending', note: 'WHERE sent_at IS NULL']
+    (user_id, scheduled_for) [name: 'idx_nq_user_scheduled', note: 'WHERE sent_at IS NULL']
+  }
+}

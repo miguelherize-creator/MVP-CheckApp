@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -18,13 +20,19 @@ import { BiometricPreferences } from './entities/biometric-preferences.entity';
 import { OnboardingState } from './entities/onboarding-state.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateBiometricDto } from './dto/update-biometric.dto';
+import { UpdateOnboardingStepDto } from './dto/update-onboarding-step.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import {
   generateOpaqueToken,
+  generateSixDigitCode,
   hashOpaqueToken,
 } from '../common/utils/crypto.utils';
 import { User } from '../users/entities/user.entity';
+import { UserGamificationStats } from '../gamification/entities/user-gamification-stats.entity';
 import { CashflowSeedService } from '../cashflow/services/cashflow-seed.service';
+import { CatalogSeedService } from '../catalog/catalog-seed.service';
+import { getDocumentValidator } from '../common/validators/document/document-validator.factory';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +41,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly cashflowSeed: CashflowSeedService,
+    private readonly catalogSeed: CatalogSeedService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly mailService: MailService,
@@ -46,6 +55,8 @@ export class AuthService {
     private readonly biometricRepo: Repository<BiometricPreferences>,
     @InjectRepository(OnboardingState)
     private readonly onboardingRepo: Repository<OnboardingState>,
+    @InjectRepository(UserGamificationStats)
+    private readonly gamificationStatsRepo: Repository<UserGamificationStats>,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -55,56 +66,68 @@ export class AuthService {
     if (!dto.acceptPrivacy) {
       throw new BadRequestException('Debes aceptar la política de privacidad para registrarte');
     }
-    if (dto.password !== dto.confirmPassword) {
-      throw new BadRequestException('Las contraseñas no coinciden');
+
+    const defaults = this.catalogSeed.getDefaults();
+    const docValidator = getDocumentValidator(defaults.rutDocumentTypeCode);
+    if (docValidator && !docValidator.validate(dto.documentNumber)) {
+      throw new BadRequestException(docValidator.errorMessage);
     }
 
+    const now = new Date();
     const user = await this.usersService.create({
-      firstName: dto.firstName,
-      lastName: dto.lastName,
       email: dto.email,
-      rut: dto.rut,
+      documentNumber: dto.documentNumber,
+      documentTypeId: defaults.rutDocumentTypeId,
       password: dto.password,
-      acceptedTermsAt: new Date(),
-      acceptedPrivacyAt: new Date(),
+      acceptedTermsAt: now,
+      acceptedPrivacyAt: now,
+      trialDays: this.config.get<number>('TRIAL_DAYS_DEFAULT', 14),
     });
 
-    await this.cashflowSeed.ensureFundingSourcesForUser(user.id);
+    await this.cashflowSeed.ensureFundingSourcesForUser(user.userId);
 
     await this.onboardingRepo.save(
       this.onboardingRepo.create({
-        userId: user.id,
+        userId: user.userId,
+        onboardingStatus: 'not_started',
         currentStep: 'email_verification',
         financialProfileCompleted: false,
         goalsSet: false,
         importAttempted: false,
         biometricPrompted: false,
+        minDocThresholdMet: false,
         completedAt: null,
+        resumeSurface: null,
+        resumeContext: null,
       }),
     );
 
     await this.biometricRepo.save(
       this.biometricRepo.create({
-        userId: user.id,
+        userId: user.userId,
         enabled: false,
         method: null,
         deviceId: null,
       }),
     );
 
-    // Token en BD ya; SMTP puede tardar — no bloquear la respuesta HTTP del registro
-    const mailPayload = await this.buildEmailVerificationMailPayload(user.id, user.email);
+    await this.gamificationStatsRepo.save(
+      this.gamificationStatsRepo.create({
+        userId: user.userId,
+        totalPoints: 0,
+        level: 1,
+        lastComputedAt: new Date(),
+      }),
+    );
+
+    // OTP persisted; SMTP puede tardar — no bloquear la respuesta HTTP del registro
+    const otpPayload = await this.buildOtpAndPersist(user.userId, user.email!);
     void this.mailService
-      .sendEmailVerificationLink(
-        mailPayload.normalizedEmail,
-        mailPayload.firstName,
-        mailPayload.lastName,
-        mailPayload.verifyUrl,
-      )
+      .sendEmailVerificationCode(otpPayload.normalizedEmail, otpPayload.code)
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         this.logger.warn(
-          `Correo de verificación no enviado tras registro (${mailPayload.normalizedEmail}): ${msg}`,
+          `Código de verificación no enviado tras registro (${otpPayload.normalizedEmail}): ${msg}`,
         );
       });
 
@@ -117,14 +140,42 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.usersService.findByIdentifierWithPassword(dto.identifier);
-    if (!user) {
+    const user = await this.usersService.findByEmailWithPassword(dto.email);
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
     const ok = await this.usersService.validatePassword(dto.password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    const defaults = this.catalogSeed.getDefaults();
+
+    if (user.userStatusId === defaults.pendingVerificationStatusId) {
+      // Emitir tokens para que el usuario pueda llamar a /email-verification/resend
+      // y completar la verificación sin quedar atascado.
+      const tokens = await this.issueTokens(user);
+      void this.requestEmailVerification(user.userId, user.email!)
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.warn(`OTP auto-resend on login failed for ${user.email}: ${msg}`);
+        });
+      return {
+        user: this.usersService.toPublic(user),
+        ...tokens,
+        nextStep: 'email_verification',
+      };
+    }
+
+    if (user.userStatusId === defaults.suspendedStatusId) {
+      throw new ForbiddenException('Tu cuenta ha sido suspendida. Contacta soporte.');
+    }
+
+    if (user.userStatusId !== defaults.activeStatusId) {
+      throw new ForbiddenException('Tu cuenta no está disponible. Contacta soporte.');
+    }
+
     const tokens = await this.issueTokens(user);
     return {
       user: this.usersService.toPublic(user),
@@ -134,17 +185,27 @@ export class AuthService {
 
   async refresh(refreshTokenPlain: string) {
     const hash = hashOpaqueToken(refreshTokenPlain);
-    const row = await this.refreshRepo.findOne({
-      where: { tokenHash: hash },
-      relations: ['user'],
-    });
-    if (!row || row.revokedAt || row.expiresAt.getTime() < Date.now()) {
+    const row = await this.refreshRepo.findOne({ where: { tokenHash: hash } });
+
+    if (!row) {
       throw new UnauthorizedException('Sesión inválida o expirada');
     }
+
+    // Token ya revocado → posible replay attack; cerrar todas las sesiones del usuario
+    if (row.revokedAt) {
+      await this.revokeAllRefreshForUser(row.userId);
+      throw new UnauthorizedException('Sesión inválida o expirada');
+    }
+
+    if (row.expiresAt.getTime() < Date.now()) {
+      throw new UnauthorizedException('Sesión inválida o expirada');
+    }
+
     const user = await this.usersService.findById(row.userId);
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
+
     row.revokedAt = new Date();
     await this.refreshRepo.save(row);
     return this.issueTokens(user);
@@ -160,47 +221,129 @@ export class AuthService {
     return { ok: true };
   }
 
-  async forgotPassword(email: string) {
-    const user = await this.usersService.findByEmail(email);
+  async logoutAll(userId: string) {
+    await this.revokeAllRefreshForUser(userId);
+    return { ok: true };
+  }
 
-    const generic = {
-      message:
-        'Si el correo existe en nuestro sistema, recibirás instrucciones para restablecer tu contraseña.',
-    };
+  async getOnboarding(userId: string) {
+    const state = await this.onboardingRepo.findOne({ where: { userId } });
+    if (!state) {
+      throw new NotFoundException('Estado de onboarding no encontrado');
+    }
+    return this.toOnboardingPublic(state);
+  }
 
-    if (!user) {
-      return generic;
+  async updateOnboardingStep(userId: string, dto: UpdateOnboardingStepDto) {
+    const state = await this.onboardingRepo.findOne({ where: { userId } });
+    if (!state) {
+      throw new NotFoundException('Estado de onboarding no encontrado');
     }
 
-    await this.resetRepo.delete({ userId: user.id });
+    if (dto.currentStep !== undefined)              state.currentStep              = dto.currentStep;
+    if (dto.resumeSurface !== undefined)            state.resumeSurface            = dto.resumeSurface;
+    if (dto.resumeContext !== undefined)            state.resumeContext            = dto.resumeContext;
+    if (dto.financialProfileCompleted !== undefined) state.financialProfileCompleted = dto.financialProfileCompleted;
+    if (dto.goalsSet !== undefined)                 state.goalsSet                 = dto.goalsSet;
+    if (dto.importAttempted !== undefined)          state.importAttempted          = dto.importAttempted;
+    if (dto.biometricPrompted !== undefined)        state.biometricPrompted        = dto.biometricPrompted;
+    if (dto.minDocThresholdMet !== undefined)       state.minDocThresholdMet       = dto.minDocThresholdMet;
 
-    const plain = generateOpaqueToken();
-    const tokenHash = hashOpaqueToken(plain);
-    const minutes = this.config.get<number>('PASSWORD_RESET_EXPIRES_MINUTES', 60);
+    // goals_set excluido hasta que tenga pantalla asignada en el flujo UI
+    const allDone =
+      state.financialProfileCompleted &&
+      state.importAttempted &&
+      state.biometricPrompted &&
+      state.minDocThresholdMet;
+
+    if (allDone && state.onboardingStatus !== 'completed') {
+      state.onboardingStatus = 'completed';
+      state.completedAt      = new Date();
+      state.resumeSurface    = 'home';
+      state.currentStep      = null;
+    }
+
+    const saved = await this.onboardingRepo.save(state);
+    return this.toOnboardingPublic(saved);
+  }
+
+  private toOnboardingPublic(state: OnboardingState) {
+    return {
+      onboardingStatus:          state.onboardingStatus,
+      currentStep:               state.currentStep,
+      resumeSurface:             state.resumeSurface,
+      resumeContext:             state.resumeContext,
+      financialProfileCompleted: state.financialProfileCompleted,
+      goalsSet:                  state.goalsSet,
+      importAttempted:           state.importAttempted,
+      biometricPrompted:         state.biometricPrompted,
+      minDocThresholdMet:        state.minDocThresholdMet,
+      completedAt:               state.completedAt,
+    };
+  }
+
+  async forgotPassword(email: string) {
+    const generic = {
+      message:
+        'Si el correo existe en nuestro sistema, recibirás un código para restablecer tu contraseña.',
+    };
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user) return generic;
+
+    await this.resetRepo.delete({ userId: user.userId });
+
+    const code = generateSixDigitCode();
+    const tokenHash = hashOpaqueToken(code);
+    const minutes = this.config.get<number>('PASSWORD_RESET_EXPIRES_MINUTES', 15);
     const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
 
     await this.resetRepo.save(
       this.resetRepo.create({
-        userId: user.id,
+        userId: user.userId,
         tokenHash,
         expiresAt,
         usedAt: null,
+        attempts: 0,
       }),
     );
 
-    await this.mailService.sendPasswordResetEmail(user.email, plain);
+    await this.mailService.sendPasswordResetOtp(user.email!, code);
     return generic;
   }
 
-  async resetPassword(plainToken: string, newPassword: string) {
-    const hash = hashOpaqueToken(plainToken);
-    const row = await this.resetRepo.findOne({
-      where: { tokenHash: hash },
-      relations: ['user'],
-    });
-    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Token inválido o expirado');
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const MAX_ATTEMPTS = 5;
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException('Código inválido o expirado');
     }
+
+    const row = await this.resetRepo.findOne({
+      where: { userId: user.userId },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Código inválido o expirado');
+    }
+
+    if (row.attempts >= MAX_ATTEMPTS) {
+      throw new BadRequestException('Demasiados intentos fallidos. Solicita un nuevo código.');
+    }
+
+    const hash = hashOpaqueToken(code);
+    if (hash !== row.tokenHash) {
+      row.attempts += 1;
+      await this.resetRepo.save(row);
+      const remaining = MAX_ATTEMPTS - row.attempts;
+      if (remaining <= 0) {
+        throw new BadRequestException('Demasiados intentos fallidos. Solicita un nuevo código.');
+      }
+      throw new BadRequestException(`Código incorrecto. Te quedan ${remaining} intentos.`);
+    }
+
     await this.usersService.updatePassword(row.userId, newPassword);
     row.usedAt = new Date();
     await this.resetRepo.save(row);
@@ -210,7 +353,7 @@ export class AuthService {
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
     const user = await this.usersService.findByIdWithPassword(userId);
-    if (!user) {
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException();
     }
     const ok = await this.usersService.validatePassword(currentPassword, user.passwordHash);
@@ -222,39 +365,21 @@ export class AuthService {
     return { message: 'Contraseña actualizada correctamente' };
   }
 
-  /**
-   * Genera un token opaco URL-safe (32 bytes hex), lo almacena hasheado y envía
-   * un email con el enlace de confirmación (magic link).
-   * Invalida tokens previos del mismo usuario.
-   * Si el email difiere del almacenado (cambio de correo), lo marca como pendiente.
-   */
   async requestEmailVerification(userId: string, email: string) {
-    const p = await this.buildEmailVerificationMailPayload(userId, email);
-    await this.mailService.sendEmailVerificationLink(
-      p.normalizedEmail,
-      p.firstName,
-      p.lastName,
-      p.verifyUrl,
-    );
-    return { message: `Enlace de verificación enviado a ${p.normalizedEmail}` };
+    const p = await this.buildOtpAndPersist(userId, email);
+    await this.mailService.sendEmailVerificationCode(p.normalizedEmail, p.code);
+    return { message: `Código de verificación enviado a ${p.normalizedEmail}` };
   }
 
-  /**
-   * Persistencia + URL del magic link; el envío SMTP lo decide el llamador (sync o en background).
-   */
-  private async buildEmailVerificationMailPayload(
+  /** Genera código OTP de 6 dígitos, invalida tokens anteriores y persiste el nuevo. */
+  private async buildOtpAndPersist(
     userId: string,
     email: string,
-  ): Promise<{
-    normalizedEmail: string;
-    firstName: string;
-    lastName: string;
-    verifyUrl: string;
-  }> {
+  ): Promise<{ normalizedEmail: string; code: string }> {
     const normalizedEmail = email.trim().toLowerCase();
 
     const existing = await this.usersService.findByEmail(normalizedEmail);
-    if (existing && existing.id !== userId) {
+    if (existing && existing.userId !== userId) {
       throw new ConflictException('Este correo ya está registrado por otra cuenta');
     }
 
@@ -266,10 +391,10 @@ export class AuthService {
       .andWhere('used_at IS NULL')
       .execute();
 
-    const plain = generateOpaqueToken();
-    const tokenHash = hashOpaqueToken(plain);
-    const hours = this.config.get<number>('EMAIL_VERIFICATION_EXPIRES_HOURS', 24);
-    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+    const code      = generateSixDigitCode();
+    const tokenHash = hashOpaqueToken(code);
+    const minutes   = this.config.get<number>('EMAIL_VERIFICATION_EXPIRES_MINUTES', 15);
+    const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
 
     await this.emailVerifRepo.save(
       this.emailVerifRepo.create({
@@ -278,6 +403,7 @@ export class AuthService {
         tokenHash,
         expiresAt,
         usedAt: null,
+        attempts: 0,
       }),
     );
 
@@ -286,106 +412,47 @@ export class AuthService {
       await this.usersService.setPendingEmail(userId, normalizedEmail);
     }
 
-    const template = this.config.get<string>(
-      'EMAIL_VERIFICATION_URL_TEMPLATE',
-      'http://localhost:3000/auth/email-verification/confirm/{{token}}',
-    );
-    const verifyUrl = template.includes('{{token}}')
-      ? template.replace('{{token}}', encodeURIComponent(plain))
-      : `${template}${template.includes('?') ? '&' : '?'}token=${encodeURIComponent(plain)}`;
-
-    const firstName = user?.firstName ?? '';
-    const lastName = user?.lastName ?? '';
-
-    return { normalizedEmail, firstName, lastName, verifyUrl };
+    return { normalizedEmail, code };
   }
 
-  /**
-   * Confirma el email a través del token del magic link (endpoint público, sin JWT).
-   * El token viene directamente desde el enlace del correo.
-   *
-   * Idempotente: si el enlace ya se consumió pero el usuario ya quedó verificado
-   * (p. ej. antivirus del correo abrió el link antes), devuelve éxito de nuevo.
-   */
-  async confirmEmailVerificationByToken(plainToken: string) {
-    const normalizedPlain = this.normalizeMagicLinkToken(plainToken);
-    const tokenHash = hashOpaqueToken(normalizedPlain);
-
-    const row = await this.emailVerifRepo.findOne({
-      where: { tokenHash },
-      relations: ['user'],
-    });
-
-    if (!row) {
-      throw new BadRequestException('Enlace inválido o expirado');
-    }
-    if (row.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Enlace inválido o expirado');
-    }
-
-    if (row.usedAt) {
-      const already = await this.usersService.findById(row.userId);
-      if (already?.emailVerifiedAt) {
-        return {
-          message: 'Correo verificado correctamente',
-          user: this.usersService.toPublic(already),
-        };
-      }
-      throw new BadRequestException('Enlace inválido o expirado');
-    }
-
-    row.usedAt = new Date();
-    await this.emailVerifRepo.save(row);
-
-    const updatedUser = await this.usersService.setEmailVerified(row.userId, row.email);
-
-    await this.onboardingRepo
-      .createQueryBuilder()
-      .update(OnboardingState)
-      .set({ currentStep: 'profile' })
-      .where('user_id = :userId', { userId: row.userId })
-      .andWhere('current_step = :step', { step: 'email_verification' })
-      .execute();
-
-    return {
-      message: 'Correo verificado correctamente',
-      user: this.usersService.toPublic(updatedUser),
-    };
-  }
-
-  /** Algunos clientes codifican el token en la URL más de una vez. */
-  private normalizeMagicLinkToken(raw: string): string {
-    let t = raw.trim();
-    for (let i = 0; i < 3; i++) {
-      try {
-        const next = decodeURIComponent(t);
-        if (next === t) break;
-        t = next;
-      } catch {
-        break;
-      }
-    }
-    return t;
-  }
-
-  /**
-   * @deprecated Mantener para compatibilidad con el flujo de código OTP anterior.
-   * Usar confirmEmailVerificationByToken() para el nuevo flujo de magic link.
-   */
   async confirmEmailVerification(userId: string, email: string, code: string) {
     const normalizedEmail = email.trim().toLowerCase();
-    const tokenHash = hashOpaqueToken(code);
 
-    const row = await this.emailVerifRepo.findOne({
-      where: { tokenHash, userId },
+    const rows = await this.emailVerifRepo.find({
+      where: { userId, usedAt: undefined as any },
+      order: { createdAt: 'DESC' },
     });
+    const row = rows.find((r) => r.usedAt === null);
 
-    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Código inválido o expirado');
+    if (!row) {
+      throw new BadRequestException('No hay un código pendiente. Solicita uno nuevo.');
+    }
+
+    if (row.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('El código expiró. Solicita uno nuevo.');
+    }
+
+    const MAX_ATTEMPTS = 5;
+    if (row.attempts >= MAX_ATTEMPTS) {
+      throw new BadRequestException('Demasiados intentos. Solicita un nuevo código.');
+    }
+
+    const tokenHash = hashOpaqueToken(code);
+    if (row.tokenHash !== tokenHash) {
+      row.attempts += 1;
+      if (row.attempts >= MAX_ATTEMPTS) {
+        row.usedAt = new Date();
+      }
+      await this.emailVerifRepo.save(row);
+      const remaining = MAX_ATTEMPTS - row.attempts;
+      if (remaining > 0) {
+        throw new BadRequestException(`Código incorrecto. ${remaining} intentos restantes.`);
+      }
+      throw new BadRequestException('Demasiados intentos. Solicita un nuevo código.');
     }
 
     if (row.email !== normalizedEmail) {
-      throw new BadRequestException('El correo no coincide con el código enviado');
+      throw new BadRequestException('El correo no coincide con el código enviado.');
     }
 
     row.usedAt = new Date();
@@ -396,7 +463,7 @@ export class AuthService {
     await this.onboardingRepo
       .createQueryBuilder()
       .update(OnboardingState)
-      .set({ currentStep: 'profile' })
+      .set({ onboardingStatus: 'in_progress', currentStep: 'biometric_setup' })
       .where('user_id = :userId', { userId })
       .andWhere('current_step = :step', { step: 'email_verification' })
       .execute();
@@ -404,6 +471,42 @@ export class AuthService {
     return {
       message: 'Correo verificado correctamente',
       user: this.usersService.toPublic(updatedUser),
+    };
+  }
+
+  async updateBiometric(userId: string, dto: UpdateBiometricDto) {
+    if (dto.enabled && !dto.method) {
+      throw new BadRequestException('El método biométrico es obligatorio al activar');
+    }
+
+    const prefs = await this.biometricRepo.findOne({ where: { userId } });
+    if (!prefs) {
+      throw new NotFoundException('Preferencias biométricas no encontradas');
+    }
+
+    prefs.enabled = dto.enabled;
+    if (dto.enabled) {
+      prefs.method = dto.method!;
+      prefs.deviceId = dto.deviceId ?? null;
+    } else {
+      prefs.method = null;
+      prefs.deviceId = null;
+    }
+
+    // Siempre marca el step como visitado, independiente de si activó o no
+    await this.onboardingRepo
+      .createQueryBuilder()
+      .update(OnboardingState)
+      .set({ biometricPrompted: true })
+      .where('user_id = :userId', { userId })
+      .execute();
+
+    const saved = await this.biometricRepo.save(prefs);
+    return {
+      enabled: saved.enabled,
+      method: saved.method,
+      deviceId: saved.deviceId,
+      updatedAt: saved.updatedAt,
     };
   }
 
@@ -419,17 +522,17 @@ export class AuthService {
 
   private async issueTokens(user: User) {
     const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
+      sub: user.userId,
+      email: user.email!,
     };
     const accessToken = await this.jwtService.signAsync(payload);
     const refreshPlain = generateOpaqueToken();
     const refreshHash = hashOpaqueToken(refreshPlain);
-    const days = this.config.get<number>('REFRESH_EXPIRES_DAYS', 7);
+    const days = this.config.get<number>('REFRESH_EXPIRES_DAYS', 30);
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     await this.refreshRepo.save(
       this.refreshRepo.create({
-        userId: user.id,
+        userId: user.userId,
         tokenHash: refreshHash,
         expiresAt,
         revokedAt: null,
