@@ -5,14 +5,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { HealthController } from './health.controller';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
-import { CatalogModule } from './catalog/catalog.module';
-import { Country } from './catalog/entities/country.entity';
-import { Currency } from './catalog/entities/currency.entity';
-import { DocumentType } from './catalog/entities/document-type.entity';
-import { StatusDomain } from './catalog/entities/status-domain.entity';
-import { Status } from './catalog/entities/status.entity';
-import { Role } from './catalog/entities/role.entity';
-import { FinancialHealthLevel } from './catalog/entities/financial-health-level.entity';
 import { User } from './users/entities/user.entity';
 import { RefreshToken } from './auth/entities/refresh-token.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
@@ -61,6 +53,10 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { SubscriptionPlan } from './subscriptions/entities/subscription-plan.entity';
 import { Subscription } from './subscriptions/entities/subscription.entity';
 import { PaymentOrder } from './subscriptions/entities/payment-order.entity';
+// ── Módulos nuevos ────────────────────────────────────────────────────────────
+import { ProfileModule } from './profile/profile.module';
+import { StatementImportModule } from './imports/statement-import.module';
+import { NotificationModule } from './notifications/notification.module';
 
 @Module({
   controllers: [HealthController],
@@ -68,83 +64,35 @@ import { PaymentOrder } from './subscriptions/entities/payment-order.entity';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
-      /** Permite ${HOST_FRONTEND} / ${HOST_BACKEND} en .env (definir esas vars antes que el resto). */
       expandVariables: true,
     }),
     ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          name: 'short',
-          ttl: 60000,
-          limit: 100,
-        },
-      ],
+      throttlers: [{ name: 'short', ttl: 60000, limit: 100 }],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-      const dbSync = config.get<string>('DB_SYNC', 'false') === 'true';
-
+        const dbSync = config.get<string>('DB_SYNC', 'false') === 'true';
         return {
           type: 'postgres',
           url: config.getOrThrow<string>('DATABASE_URL'),
           entities: [
-            Country,
-            Currency,
-            DocumentType,
-            StatusDomain,
-            Status,
-            Role,
-            FinancialHealthLevel,
-            User,
-            RefreshToken,
-            PasswordResetToken,
-            EmailVerificationToken,
-            BiometricPreferences,
-            OnboardingState,
-            FundingSource,
-            Category,
-            Subcategory,
-            Transaction,
-            AntExpenseRule,
-            UserFinancialProfile,
-            UserGoal,
-            AlertPreferences,
-            NotificationQueue,
-            BudgetPeriod,
-            BudgetLine,
-            Debt,
-            DebtSchedule,
-            DebtPayment,
-            DebtAttachment,
-            DebtSnowballPlan,
-            StatementImport,
-            ImportLineItem,
-            MovementClassificationSuggestion,
-            BillPayable,
-            RecurringPaymentSuggestion,
-            GamificationRule,
-            GamificationEvent,
-            UserGamificationStats,
-            UserScoreHistory,
-            FinancialHealthSnapshot,
-            RecommendationEvent,
-            AiConversation,
-            AiMessage,
-            AiToolInvocation,
-            AiContextSnapshot,
-            FaqArticle,
-            AdminUser,
-            AppConfig,
-            AdminAuditLog,
-            AuditLog,
-            ReportSnapshot,
-            SubscriptionPlan,
-            Subscription,
-            PaymentOrder,
+            User, RefreshToken, PasswordResetToken,
+            EmailVerificationToken, BiometricPreferences, OnboardingState,
+            FundingSource, Category, Subcategory, Transaction, AntExpenseRule,
+            UserFinancialProfile, UserGoal,
+            AlertPreferences, NotificationQueue,
+            BudgetPeriod, BudgetLine,
+            Debt, DebtSchedule, DebtPayment, DebtAttachment, DebtSnowballPlan,
+            StatementImport, ImportLineItem, MovementClassificationSuggestion,
+            BillPayable, RecurringPaymentSuggestion,
+            GamificationRule, GamificationEvent, UserGamificationStats, UserScoreHistory,
+            FinancialHealthSnapshot, RecommendationEvent,
+            AiConversation, AiMessage, AiToolInvocation, AiContextSnapshot, FaqArticle,
+            AdminUser, AppConfig, AdminAuditLog, AuditLog, ReportSnapshot,
+            SubscriptionPlan, Subscription, PaymentOrder,
           ],
-          // MVP: en producción usa migraciones; si aún no existen, DB_SYNC=true crea esquema (solo transitorio).
           synchronize: dbSync,
           logging: config.get<string>('NODE_ENV') === 'development',
         };
@@ -152,9 +100,12 @@ import { PaymentOrder } from './subscriptions/entities/payment-order.entity';
     }),
     UsersModule,
     AuthModule,
-    CatalogModule,
     CashflowModule,
     SubscriptionsModule,
+    // Módulos nuevos
+    ProfileModule,
+    StatementImportModule,
+    NotificationModule,
   ],
 })
 export class AppModule {}
