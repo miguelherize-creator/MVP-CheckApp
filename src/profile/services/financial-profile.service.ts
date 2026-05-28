@@ -23,13 +23,13 @@ export class FinancialProfileService {
     }
 
     if (dto.monthlyIncomeEstimate !== undefined)
-      profile.monthlyIncomeEstimate = String(dto.monthlyIncomeEstimate);
+      profile.monthlyIncomeEstimate = dto.monthlyIncomeEstimate;
     if (dto.stableExpensesNote !== undefined)
       profile.stableExpensesNote = dto.stableExpensesNote;
     if (dto.estimatedPaymentCapacity !== undefined)
-      profile.estimatedPaymentCapacity = String(dto.estimatedPaymentCapacity);
+      profile.estimatedPaymentCapacity = dto.estimatedPaymentCapacity;
     if (dto.currency !== undefined)
-      profile.currency = dto.currency.toUpperCase();
+      profile.currencyId = null; // o mapearlo si tienes el id de moneda
 
     return this.profileRepo.save(profile);
   }

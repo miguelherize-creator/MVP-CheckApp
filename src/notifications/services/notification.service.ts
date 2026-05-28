@@ -156,19 +156,20 @@ export class NotificationService {
       const cadenceDays = pref?.cadenceDays ?? 1;
       if (await this.wasRecentlySent(userId, alert.alertType, 'in_app', cadenceDays)) continue;
 
-      const notification = this.queueRepo.create({
-        userId,
-        channel: 'in_app',
-        payload: {
-          alertType: alert.alertType,
-          title: alert.title,
-          message: alert.message,
-          context: alert.context,
-        } as any,
-        scheduledFor: new Date(),
-        sentAt: null,
-        billsPayableId: null,
-      });
+        const notification = this.queueRepo.create({
+          userId,
+          channel: 'in_app',
+          payload: {
+            alertType: alert.alertType,
+            title: alert.title,
+            message: alert.message,
+            context: alert.context,
+          } as any,
+          scheduledFor: new Date(),
+          sentAt: null,
+          referenceType: null,
+          referenceId: null,
+        });
       queued.push(await this.queueRepo.save(notification));
     }
 

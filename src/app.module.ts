@@ -57,6 +57,14 @@ import { PaymentOrder } from './subscriptions/entities/payment-order.entity';
 import { ProfileModule } from './profile/profile.module';
 import { StatementImportModule } from './imports/statement-import.module';
 import { NotificationModule } from './notifications/notification.module';
+import { Country } from './catalog/entities/country.entity';
+import { Currency } from './catalog/entities/currency.entity';
+import { DocumentType } from './catalog/entities/document-type.entity';
+import { StatusDomain } from './catalog/entities/status-domain.entity';
+import { Status } from './catalog/entities/status.entity';
+import { Role } from './catalog/entities/role.entity';
+import { FinancialHealthLevel } from './catalog/entities/financial-health-level.entity';
+import { CatalogModule } from './catalog/catalog.module';
 
 @Module({
   controllers: [HealthController],
@@ -66,6 +74,7 @@ import { NotificationModule } from './notifications/notification.module';
       envFilePath: ['.env.local', '.env'],
       expandVariables: true,
     }),
+    CatalogModule,
     ThrottlerModule.forRoot({
       throttlers: [{ name: 'short', ttl: 60000, limit: 100 }],
     }),
@@ -92,6 +101,7 @@ import { NotificationModule } from './notifications/notification.module';
             AiConversation, AiMessage, AiToolInvocation, AiContextSnapshot, FaqArticle,
             AdminUser, AppConfig, AdminAuditLog, AuditLog, ReportSnapshot,
             SubscriptionPlan, Subscription, PaymentOrder,
+            Country, Currency, DocumentType, StatusDomain, Status, Role, FinancialHealthLevel,
           ],
           synchronize: dbSync,
           logging: config.get<string>('NODE_ENV') === 'development',
