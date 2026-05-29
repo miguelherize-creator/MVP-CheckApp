@@ -22,22 +22,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - '${PORT:-3000}:3000'
+    env_file:
+      - .env
     environment:
-      NODE_ENV: development
-      PORT: 3000
       DATABASE_URL: postgresql://walvy:walvy@postgres:5432/walvy
-      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-change-me-min-32-chars!!}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
-      REFRESH_EXPIRES_DAYS: ${REFRESH_EXPIRES_DAYS:-7}
-      PASSWORD_RESET_EXPIRES_MINUTES: ${PASSWORD_RESET_EXPIRES_MINUTES:-60}
-      PASSWORD_RESET_URL_TEMPLATE: ${PASSWORD_RESET_URL_TEMPLATE:-http://localhost:3000/reset?token={{token}}}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
-      SEED_CASHFLOW: ${SEED_CASHFLOW:-false}
-      FLOW_API_URL: ${FLOW_API_URL:-https://sandbox.flow.cl/api}
-      FLOW_API_KEY: ${FLOW_API_KEY}
-      FLOW_SECRET_KEY: ${FLOW_SECRET_KEY}
-      FLOW_CONFIRM_URL: ${FLOW_CONFIRM_URL:-http://localhost:3000/subscriptions/webhook}
-      FLOW_RETURN_URL: ${FLOW_RETURN_URL:-http://localhost:3000/subscription/result}
+      PORT: "3000"    
     depends_on:
       postgres:
         condition: service_healthy
