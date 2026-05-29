@@ -173,22 +173,6 @@ export class UsersService {
     return this.usersRepo.save(user);
   }
 
-  async updateDisplayName(userId: string, dto: UpdateDisplayNameDto): Promise<User> {
-    if (!dto.fullName?.trim() && !dto.username?.trim()) {
-      throw new BadRequestException('Debes ingresar al menos un nombre o alias');
-    }
-
-    const user = await this.findById(userId);
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-
-    if (dto.fullName !== undefined) user.fullName = dto.fullName.trim();
-    if (dto.username !== undefined) user.username = dto.username.trim();
-
-    return this.usersRepo.save(user);
-  }
-
   toPublic(user: User) {
     return {
       id: user.userId,
