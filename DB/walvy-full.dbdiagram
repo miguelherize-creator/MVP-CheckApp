@@ -1,0 +1,2287 @@
+{
+  "version": "2.0.0",
+  "darkMode": true,
+  "gridEnabling": false,
+  "currentViewName": null,
+  "defaultView": {
+    "detailLevel": "All",
+    "tablePositions": [
+      {
+        "name": "country",
+        "schemaName": "public",
+        "x": 1170.37353515625,
+        "y": 12
+      },
+      {
+        "name": "currency",
+        "schemaName": "public",
+        "x": 1170.37353515625,
+        "y": 250
+      },
+      {
+        "name": "country_currency",
+        "schemaName": "public",
+        "x": 1836.9287109375,
+        "y": 53
+      },
+      {
+        "name": "document_type",
+        "schemaName": "public",
+        "x": 1836.9287109375,
+        "y": 291
+      },
+      {
+        "name": "status_domain",
+        "schemaName": "public",
+        "x": 1170.37353515625,
+        "y": 520
+      },
+      {
+        "name": "status",
+        "schemaName": "public",
+        "x": 1836.9287109375,
+        "y": 1182
+      },
+      {
+        "name": "role",
+        "schemaName": "public",
+        "x": 1170.37353515625,
+        "y": 758
+      },
+      {
+        "name": "permission",
+        "schemaName": "public",
+        "x": 1170.37353515625,
+        "y": 1028
+      },
+      {
+        "name": "role_permission",
+        "schemaName": "public",
+        "x": 1836.9287109375,
+        "y": 1517
+      },
+      {
+        "name": "financial_health_level",
+        "schemaName": "public",
+        "x": 1170.37353515625,
+        "y": 1362
+      },
+      {
+        "name": "app_config",
+        "schemaName": "public",
+        "x": 829.478515625,
+        "y": 12
+      },
+      {
+        "name": "app_user",
+        "schemaName": "public",
+        "x": 2550.1923828125,
+        "y": 179
+      },
+      {
+        "name": "refresh_tokens",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 95
+      },
+      {
+        "name": "password_reset_tokens",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 366
+      },
+      {
+        "name": "email_verification_tokens",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 636
+      },
+      {
+        "name": "biometric_preferences",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 970
+      },
+      {
+        "name": "user_onboarding_state",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 1208
+      },
+      {
+        "name": "company",
+        "schemaName": "public",
+        "x": 2550.1923828125,
+        "y": 1090
+      },
+      {
+        "name": "company_benefit_contract",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 1734
+      },
+      {
+        "name": "company_eligible_employee",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 12
+      },
+      {
+        "name": "benefit_invitation",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 12
+      },
+      {
+        "name": "user_financial_profile",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 2068
+      },
+      {
+        "name": "user_goals",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 2338
+      },
+      {
+        "name": "alert_preferences",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 2704
+      },
+      {
+        "name": "notification_queue",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 3070
+      },
+      {
+        "name": "financial_institution",
+        "schemaName": "public",
+        "x": 1836.9287109375,
+        "y": 593
+      },
+      {
+        "name": "user_financial_instrument",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 3436
+      },
+      {
+        "name": "cashflow_node",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 3834
+      },
+      {
+        "name": "category",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 4220
+      },
+      {
+        "name": "ant_expense_rules",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 400
+      },
+      {
+        "name": "file_upload",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 4715
+      },
+      {
+        "name": "import_line_items",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 702
+      },
+      {
+        "name": "movement_classification_suggestions",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 315
+      },
+      {
+        "name": "financial_movement",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 1037
+      },
+      {
+        "name": "movement_review_queue",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 681
+      },
+      {
+        "name": "movement_classification_history",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 1047
+      },
+      {
+        "name": "budget_plan",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 5423
+      },
+      {
+        "name": "budget_plan_item",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 2043
+      },
+      {
+        "name": "debt",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 2463
+      },
+      {
+        "name": "debt_schedules",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 1477
+      },
+      {
+        "name": "debt_payments",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 1779
+      },
+      {
+        "name": "debt_attachments",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 2081
+      },
+      {
+        "name": "debt_payoff_simulation",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 5694
+      },
+      {
+        "name": "debt_payoff_schedule",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 2415
+      },
+      {
+        "name": "user_payment",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 2781
+      },
+      {
+        "name": "recurring_payment_suggestions",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 6092
+      },
+      {
+        "name": "plan",
+        "schemaName": "public",
+        "x": 1170.37353515625,
+        "y": 1696
+      },
+      {
+        "name": "plan_price",
+        "schemaName": "public",
+        "x": 1836.9287109375,
+        "y": 1724
+      },
+      {
+        "name": "payment_method",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 6394
+      },
+      {
+        "name": "subscription",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 6953
+      },
+      {
+        "name": "payment_order",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 3341
+      },
+      {
+        "name": "gamification_rules",
+        "schemaName": "public",
+        "x": 829.478515625,
+        "y": 282
+      },
+      {
+        "name": "gamification_events",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 7832
+      },
+      {
+        "name": "user_gamification_stats",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 8156
+      },
+      {
+        "name": "user_score_history",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 8362
+      },
+      {
+        "name": "message_rule",
+        "schemaName": "public",
+        "x": 1170.37353515625,
+        "y": 1998
+      },
+      {
+        "name": "message_event",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 8664
+      },
+      {
+        "name": "user_message_interaction",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 3889
+      },
+      {
+        "name": "ai_conversations",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 9062
+      },
+      {
+        "name": "ai_messages",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 4223
+      },
+      {
+        "name": "ai_tool_invocations",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 3435
+      },
+      {
+        "name": "ai_context_snapshots",
+        "schemaName": "public",
+        "x": 4624.75732421875,
+        "y": 4493
+      },
+      {
+        "name": "faq_articles",
+        "schemaName": "public",
+        "x": 12,
+        "y": 12
+      },
+      {
+        "name": "admin_users",
+        "schemaName": "public",
+        "x": 340.7392578125,
+        "y": 12
+      },
+      {
+        "name": "admin_audit_log",
+        "schemaName": "public",
+        "x": 829.478515625,
+        "y": 648
+      },
+      {
+        "name": "audit_log",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 9300
+      },
+      {
+        "name": "report_snapshots",
+        "schemaName": "public",
+        "x": 829.478515625,
+        "y": 982
+      },
+      {
+        "name": "user_month_diagnosis_summary",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 9602
+      },
+      {
+        "name": "user_month_debt_priority_summary",
+        "schemaName": "public",
+        "x": 5398.19482421875,
+        "y": 3705
+      },
+      {
+        "name": "user_upcoming_payments_summary",
+        "schemaName": "public",
+        "x": 6036.3505859375,
+        "y": 12
+      },
+      {
+        "name": "user_month_leaks_summary",
+        "schemaName": "public",
+        "x": 3503.7392578125,
+        "y": 10192
+      }
+    ],
+    "tableGroupCollapseStates": [],
+    "stickyNoteLayouts": [],
+    "referencePaths": [
+      {
+        "firstFieldNames": [
+          "country_id"
+        ],
+        "firstTableName": "country",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "country_id"
+        ],
+        "secondTableName": "country_currency",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "currency_id"
+        ],
+        "secondTableName": "country_currency",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "country_id"
+        ],
+        "firstTableName": "country",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "country_id"
+        ],
+        "secondTableName": "document_type",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_domain_id"
+        ],
+        "firstTableName": "status_domain",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "status_domain_id"
+        ],
+        "secondTableName": "status",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "role_id"
+        ],
+        "firstTableName": "role",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "role_id"
+        ],
+        "secondTableName": "role_permission",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "permission_id"
+        ],
+        "firstTableName": "permission",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "permission_id"
+        ],
+        "secondTableName": "role_permission",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "admin_users",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "updated_by_admin_id"
+        ],
+        "secondTableName": "app_config",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "document_type_id"
+        ],
+        "firstTableName": "document_type",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "document_type_id"
+        ],
+        "secondTableName": "app_user",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "country_id"
+        ],
+        "firstTableName": "country",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "country_id"
+        ],
+        "secondTableName": "app_user",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "default_currency_id"
+        ],
+        "secondTableName": "app_user",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "role_id"
+        ],
+        "firstTableName": "role",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "role_id"
+        ],
+        "secondTableName": "app_user",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_status_id"
+        ],
+        "secondTableName": "app_user",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "financial_health_level_id"
+        ],
+        "firstTableName": "financial_health_level",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "current_financial_health_level_id"
+        ],
+        "secondTableName": "app_user",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "refresh_tokens",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "password_reset_tokens",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "email_verification_tokens",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "biometric_preferences",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_onboarding_state",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "country_id"
+        ],
+        "firstTableName": "country",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "country_id"
+        ],
+        "secondTableName": "company",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "document_type_id"
+        ],
+        "firstTableName": "document_type",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "document_type_id"
+        ],
+        "secondTableName": "company",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "company_id"
+        ],
+        "firstTableName": "company",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "company_id"
+        ],
+        "secondTableName": "company_benefit_contract",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "contract_id"
+        ],
+        "firstTableName": "company_benefit_contract",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "contract_id"
+        ],
+        "secondTableName": "company_eligible_employee",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "document_type_id"
+        ],
+        "firstTableName": "document_type",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "document_type_id"
+        ],
+        "secondTableName": "company_eligible_employee",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "activated_user_id"
+        ],
+        "secondTableName": "company_eligible_employee",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "eligible_employee_id"
+        ],
+        "firstTableName": "company_eligible_employee",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "eligible_employee_id"
+        ],
+        "secondTableName": "benefit_invitation",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_financial_profile",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "currency_id"
+        ],
+        "secondTableName": "user_financial_profile",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_goals",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "alert_preferences",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "notification_queue",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "country_id"
+        ],
+        "firstTableName": "country",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "country_id"
+        ],
+        "secondTableName": "financial_institution",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_financial_instrument",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "financial_institution_id"
+        ],
+        "firstTableName": "financial_institution",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "financial_institution_id"
+        ],
+        "secondTableName": "user_financial_instrument",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "owner_user_id"
+        ],
+        "secondTableName": "cashflow_node",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "parent_category_id"
+        ],
+        "secondTableName": "category",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "owner_user_id"
+        ],
+        "secondTableName": "category",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "replaced_by_category_id"
+        ],
+        "secondTableName": "category",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "ant_expense_rules",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "category_id"
+        ],
+        "secondTableName": "ant_expense_rules",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "file_upload",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "file_status_id"
+        ],
+        "secondTableName": "file_upload",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "file_upload_id"
+        ],
+        "firstTableName": "file_upload",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "file_upload_id"
+        ],
+        "secondTableName": "import_line_items",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "movement_classification_suggestions",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "import_line_items",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "import_line_id"
+        ],
+        "secondTableName": "movement_classification_suggestions",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "currency_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "category_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "category_leaf_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "cashflow_node_id"
+        ],
+        "firstTableName": "cashflow_node",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "cashflow_origin_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "cashflow_node_id"
+        ],
+        "firstTableName": "cashflow_node",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "cashflow_destination_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "financial_institution_id"
+        ],
+        "firstTableName": "financial_institution",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "financial_institution_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "financial_instrument_id"
+        ],
+        "firstTableName": "user_financial_instrument",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "financial_instrument_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "file_upload_id"
+        ],
+        "firstTableName": "file_upload",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "file_upload_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "movement_status_id"
+        ],
+        "secondTableName": "financial_movement",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "movement_review_queue",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "movement_id"
+        ],
+        "firstTableName": "financial_movement",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "movement_id"
+        ],
+        "secondTableName": "movement_review_queue",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "review_status_id"
+        ],
+        "secondTableName": "movement_review_queue",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "movement_id"
+        ],
+        "firstTableName": "financial_movement",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "movement_id"
+        ],
+        "secondTableName": "movement_classification_history",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "old_category_id"
+        ],
+        "secondTableName": "movement_classification_history",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "new_category_id"
+        ],
+        "secondTableName": "movement_classification_history",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "old_leaf_id"
+        ],
+        "secondTableName": "movement_classification_history",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "new_leaf_id"
+        ],
+        "secondTableName": "movement_classification_history",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "changed_by"
+        ],
+        "secondTableName": "movement_classification_history",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "budget_plan",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "currency_id"
+        ],
+        "secondTableName": "budget_plan",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "budget_plan_id"
+        ],
+        "firstTableName": "budget_plan",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "budget_plan_id"
+        ],
+        "secondTableName": "budget_plan_item",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "category_id"
+        ],
+        "firstTableName": "category",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "category_id"
+        ],
+        "secondTableName": "budget_plan_item",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "debt",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "currency_id"
+        ],
+        "secondTableName": "debt",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "financial_instrument_id"
+        ],
+        "firstTableName": "user_financial_instrument",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "financial_instrument_id"
+        ],
+        "secondTableName": "debt",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "debt_status_id"
+        ],
+        "secondTableName": "debt",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "debt_id"
+        ],
+        "firstTableName": "debt",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "debt_id"
+        ],
+        "secondTableName": "debt_schedules",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "debt_id"
+        ],
+        "firstTableName": "debt",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "debt_id"
+        ],
+        "secondTableName": "debt_payments",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "movement_id"
+        ],
+        "firstTableName": "financial_movement",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "movement_id"
+        ],
+        "secondTableName": "debt_payments",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "debt_attachments",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "debt_id"
+        ],
+        "firstTableName": "debt",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "debt_id"
+        ],
+        "secondTableName": "debt_attachments",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "debt_payoff_simulation",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "simulation_id"
+        ],
+        "firstTableName": "debt_payoff_simulation",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "simulation_id"
+        ],
+        "secondTableName": "debt_payoff_schedule",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "debt_id"
+        ],
+        "firstTableName": "debt",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "debt_id"
+        ],
+        "secondTableName": "debt_payoff_schedule",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_payment",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "debt_id"
+        ],
+        "firstTableName": "debt",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "debt_id"
+        ],
+        "secondTableName": "user_payment",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "movement_id"
+        ],
+        "firstTableName": "financial_movement",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "movement_id"
+        ],
+        "secondTableName": "user_payment",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "currency_id"
+        ],
+        "secondTableName": "user_payment",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_payment_status_id"
+        ],
+        "secondTableName": "user_payment",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "recurring_payment_suggestions",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "plan_id"
+        ],
+        "firstTableName": "plan",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "plan_id"
+        ],
+        "secondTableName": "plan_price",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "country_id"
+        ],
+        "firstTableName": "country",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "country_id"
+        ],
+        "secondTableName": "plan_price",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "currency_id"
+        ],
+        "secondTableName": "plan_price",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "payment_method",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "company_id"
+        ],
+        "firstTableName": "company",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "company_id"
+        ],
+        "secondTableName": "payment_method",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "payment_method_status_id"
+        ],
+        "secondTableName": "payment_method",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "subscription",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "company_id"
+        ],
+        "firstTableName": "company",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "company_id"
+        ],
+        "secondTableName": "subscription",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "plan_id"
+        ],
+        "firstTableName": "plan",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "plan_id"
+        ],
+        "secondTableName": "subscription",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "plan_price_id"
+        ],
+        "firstTableName": "plan_price",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "plan_price_id"
+        ],
+        "secondTableName": "subscription",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "billed_currency_id"
+        ],
+        "secondTableName": "subscription",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "subscription_status_id"
+        ],
+        "secondTableName": "subscription",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "payment_order",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "subscription_id"
+        ],
+        "firstTableName": "subscription",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "subscription_id"
+        ],
+        "secondTableName": "payment_order",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "currency_id"
+        ],
+        "firstTableName": "currency",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "currency_id"
+        ],
+        "secondTableName": "payment_order",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "admin_users",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "updated_by_admin_id"
+        ],
+        "secondTableName": "gamification_rules",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "gamification_events",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_gamification_stats",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_score_history",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "message_event",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "message_rule_id"
+        ],
+        "firstTableName": "message_rule",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "message_rule_id"
+        ],
+        "secondTableName": "message_event",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "message_event_status_id"
+        ],
+        "secondTableName": "message_event",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_message_interaction",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "message_event_id"
+        ],
+        "firstTableName": "message_event",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "message_event_id"
+        ],
+        "secondTableName": "user_message_interaction",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "ai_conversations",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "ai_conversations",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "conversation_id"
+        ],
+        "secondTableName": "ai_messages",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "ai_messages",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "message_id"
+        ],
+        "secondTableName": "ai_tool_invocations",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "ai_conversations",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "conversation_id"
+        ],
+        "secondTableName": "ai_context_snapshots",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "admin_users",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "admin_id"
+        ],
+        "secondTableName": "admin_audit_log",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "audit_log",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id"
+        ],
+        "firstTableName": "admin_users",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "generated_by_admin_id"
+        ],
+        "secondTableName": "report_snapshots",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_month_diagnosis_summary",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_month_debt_priority_summary",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "debt_id"
+        ],
+        "firstTableName": "debt",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "debt_id"
+        ],
+        "secondTableName": "user_month_debt_priority_summary",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_upcoming_payments_summary",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_payment_id"
+        ],
+        "firstTableName": "user_payment",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_payment_id"
+        ],
+        "secondTableName": "user_upcoming_payments_summary",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "status_id"
+        ],
+        "firstTableName": "status",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_payment_status_id"
+        ],
+        "secondTableName": "user_upcoming_payments_summary",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "user_id"
+        ],
+        "firstTableName": "app_user",
+        "firstSchemaName": "public",
+        "firstRelation": "1",
+        "secondFieldNames": [
+          "user_id"
+        ],
+        "secondTableName": "user_month_leaks_summary",
+        "secondSchemaName": "public",
+        "secondRelation": "*",
+        "checkPoints": []
+      }
+    ]
+  },
+  "views": {}
+}

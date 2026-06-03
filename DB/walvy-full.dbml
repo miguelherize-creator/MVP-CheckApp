@@ -1,0 +1,1023 @@
+// ═══════════════════════════════════════════════════════════════════
+// WALVY DB — Diagrama completo con estado de implementación
+// Generado: 2026-05-27
+// Renderizar en: https://dbdiagram.io  (Import → pegar este archivo)
+//
+// LEYENDA DE COLORES
+//   #27AE60  Verde oscuro  — Implementado: schema + endpoints operativos en v1
+//   #F0B429  Amarillo      — Schema listo: endpoint pendiente de implementar
+//   #5B9BD5  Azul          — Schema definido: módulo sin iniciar
+// ═══════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 0 — CATÁLOGOS ISO  [IMPLEMENTADO]
+// ─────────────────────────────────────────────────────────────────
+
+Table country [headercolor: #27AE60, note: 'L0 · ISO-3166-1 alpha-2'] {
+  country_id   bigserial   [pk, increment]
+  country_code varchar(2)  [not null, unique, note: 'CL, CO, AR, PE, MX']
+  name         varchar(100) [not null, unique]
+  created_at   timestamp [not null]
+  updated_at   timestamp [not null]
+}
+
+Table currency [headercolor: #27AE60, note: 'L0 · ISO-4217'] {
+  currency_id   bigserial   [pk, increment]
+  currency_code varchar(3)  [not null, unique, note: 'CLP, USD, COP']
+  name          varchar(100) [not null]
+  minor_units   smallint    [not null, note: '0=CLP · 2=USD']
+  created_at    timestamp [not null]
+  updated_at    timestamptz [not null]
+}
+
+Table country_currency [headercolor: #27AE60, note: 'L0 · N:M país-moneda'] {
+  country_id  bigint  [not null, ref: > country.country_id]
+  currency_id bigint  [not null, ref: > currency.currency_id]
+  is_primary  boolean [not null, default: false, note: 'Índice parcial garantiza 1 moneda primaria por país']
+  created_at  timestamptz [not null]
+  updated_at  timestamptz [not null]
+
+  indexes {
+    (country_id, currency_id) [pk]
+    (country_id) [unique, name: 'uq_country_currency_primary', note: 'WHERE is_primary = true']
+  }
+}
+
+Table document_type [headercolor: #27AE60, note: 'L0 · RUT, DNI, PASSPORT'] {
+  document_type_id bigserial   [pk, increment]
+  code             varchar(30) [not null, unique, note: 'RUT · DNI · PASSPORT']
+  name             varchar(100) [not null]
+  country_id       bigint      [ref: > country.country_id, note: 'NULL = aplica globalmente']
+  subject_scope    varchar(10) [not null, note: 'person | company | both']
+  created_at       timestamptz [not null]
+  updated_at       timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 1 — STATUS CENTRALIZADO  [IMPLEMENTADO]
+// ─────────────────────────────────────────────────────────────────
+
+Table status_domain [headercolor: #27AE60, note: 'L1 · Reemplaza ENUMs · agregar estado = INSERT'] {
+  status_domain_id bigserial   [pk, increment]
+  code             varchar(50) [not null, unique, note: 'user · debt · subscription · movement']
+  name             varchar(100) [not null]
+  created_at       timestamptz [not null]
+  updated_at       timestamptz [not null]
+}
+
+Table status [headercolor: #27AE60, note: 'L1 · Estados por dominio'] {
+  status_id        bigserial   [pk, increment]
+  status_domain_id bigint      [not null, ref: > status_domain.status_domain_id]
+  code             varchar(50) [not null, note: 'active · trialing · pending_verification']
+  name             varchar(100) [not null]
+  is_active        boolean     [not null, default: true]
+  sort_order       smallint    [not null, default: 0]
+  created_at       timestamptz [not null]
+  updated_at       timestamptz [not null]
+
+  indexes {
+    (status_domain_id, code) [unique, name: 'uq_status_domain_code']
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 2 — RBAC  [IMPLEMENTADO]
+// ─────────────────────────────────────────────────────────────────
+
+Table role [headercolor: #27AE60, note: 'L2 · admin · support · user'] {
+  role_id     bigserial   [pk, increment]
+  code        varchar(50) [not null, unique]
+  name        varchar(100) [not null]
+  description text
+  created_at  timestamptz [not null]
+  updated_at  timestamptz [not null]
+}
+
+Table permission [headercolor: #27AE60, note: 'L2 · movements.read · debts.write'] {
+  permission_id bigserial    [pk, increment]
+  code          varchar(120) [not null, unique]
+  name          varchar(150) [not null]
+  description   text
+  path_pattern  varchar(200) [note: '/api/movements*']
+  http_methods  varchar(50)  [note: 'GET,POST']
+  created_at    timestamptz  [not null]
+  updated_at    timestamptz  [not null]
+}
+
+Table role_permission [headercolor: #27AE60, note: 'L2 · pivot rol-permiso'] {
+  role_id       bigint [not null, ref: > role.role_id]
+  permission_id bigint [not null, ref: > permission.permission_id]
+  created_at    timestamptz [not null]
+  updated_at    timestamptz [not null]
+
+  indexes {
+    (role_id, permission_id) [pk]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 3 — CONFIGURACIÓN Y SALUD  [IMPLEMENTADO]
+// ─────────────────────────────────────────────────────────────────
+
+Table financial_health_level [headercolor: #27AE60, note: 'L3 · Avatar Walvy'] {
+  financial_health_level_id bigserial    [pk, increment]
+  code                      varchar(50)  [not null, unique, note: 'overwhelmed · transitioning · in_control']
+  name_es                   varchar(120) [not null]
+  description_es            text
+  asset_path                varchar(500)
+  is_active                 boolean      [not null, default: true]
+  created_at                timestamptz  [not null]
+  updated_at                timestamptz  [not null]
+}
+
+Table app_config [headercolor: #27AE60, note: 'L3 · clave-valor tipado · ajustable sin deploy'] {
+  key                 text        [pk, note: 'trial_days_default · feature_ai_enabled']
+  value               jsonb       [not null]
+  value_type          varchar(10) [not null, note: 'integer | decimal | boolean | json | text']
+  description         text
+  updated_by_admin_id uuid        [ref: > admin_users.id]
+  updated_at          timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 4 — IDENTIDAD Y AUTH  [IMPLEMENTADO]
+// ─────────────────────────────────────────────────────────────────
+
+Table app_user [headercolor: #27AE60, note: 'L4 · Tabla central · multi-país · RBAC · trial · soft-delete'] {
+  user_id                           uuid         [pk, default: `gen_random_uuid()`]
+  email                             varchar(320) [unique, note: 'NULL si solo OAuth (post-MVP)']
+  password_hash                     text         [note: 'bcrypt ≥12 · NULL si solo OAuth']
+  auth_provider                     varchar(50)  [note: 'google | apple — post-MVP']
+  auth_provider_user_id             varchar(200)
+  identifier_type                   varchar(20)  [not null, default: 'email', note: 'email | rut | username']
+  full_name                         varchar(200)
+  username                          varchar(80)  [unique]
+  avatar_url                        varchar(500)
+  notification_email                varchar(320) [note: 'Puede diferir del email de login']
+  notification_email_verified_at    timestamptz  [note: 'NULL hasta confirmar nuevo email']
+  document_type_id                  bigint       [ref: > document_type.document_type_id]
+  document_number                   varchar(50)
+  country_id                        bigint       [not null, ref: > country.country_id]
+  default_currency_id               bigint       [not null, ref: > currency.currency_id]
+  role_id                           bigint       [not null, ref: > role.role_id]
+  user_status_id                    bigint       [not null, ref: > status.status_id, note: 'Dominio: user · trigger enforce_status_domain']
+  trial_started_at                  timestamptz
+  trial_ends_at                     timestamptz  [note: '= started_at + app_config[trial_days_default]']
+  current_financial_health_level_id bigint       [ref: > financial_health_level.financial_health_level_id]
+  financial_health_updated_at       timestamptz
+  email_verified_at                 timestamptz
+  accepted_terms_at                 timestamptz
+  deleted_at                        timestamptz  [note: 'Soft delete — nunca DELETE físico']
+  created_at                        timestamptz  [not null]
+  updated_at                        timestamptz  [not null]
+}
+
+Table refresh_tokens [headercolor: #27AE60, note: 'L4 · hash SHA-256 · rotación en cada uso · TTL 30d'] {
+  id         uuid        [pk]
+  user_id    uuid        [not null, ref: > app_user.user_id]
+  token_hash text        [not null, unique]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz [note: 'NULL = sesión activa']
+  created_at timestamptz [not null]
+}
+
+Table password_reset_tokens [headercolor: #27AE60, note: 'L4 · OTP 6 dígitos · TTL 15min · 5 intentos'] {
+  id         uuid        [pk]
+  user_id    uuid        [not null, ref: > app_user.user_id]
+  token_hash text        [not null, unique]
+  expires_at timestamptz [not null]
+  used_at    timestamptz [note: 'NULL = no usado · un solo uso']
+  created_at timestamptz [not null]
+}
+
+Table email_verification_tokens [headercolor: #27AE60, note: 'L4 · OTP 6 dígitos · TTL 15min · 5 intentos'] {
+  id         uuid     [pk]
+  user_id    uuid     [not null, ref: > app_user.user_id]
+  email      text     [not null]
+  token_hash text     [not null, unique, note: 'Nunca el código en claro']
+  expires_at timestamptz [not null]
+  attempts   smallint [not null, default: 0, note: 'Máx 5 · luego se invalida']
+  used_at    timestamptz
+  created_at timestamptz [not null]
+}
+
+Table biometric_preferences [headercolor: #27AE60, note: 'L4 · 1:1 con app_user'] {
+  user_id    uuid        [pk, ref: - app_user.user_id]
+  enabled    boolean     [not null, default: false]
+  method     text        [note: 'face_id | fingerprint | device_pin']
+  device_id  text
+  updated_at timestamptz [not null]
+}
+
+Table user_onboarding_state [headercolor: #27AE60, note: 'L4 · 1:1 con app_user · resume_surface para retomar desde cualquier pantalla'] {
+  user_id                     uuid        [pk, ref: - app_user.user_id]
+  onboarding_status           varchar(20) [not null, note: 'not_started | in_progress | completed']
+  current_step                varchar(80) [note: 'email_verification | biometric_setup | profile_basic | welcome | document_upload | document_processing | null']
+  resume_surface              varchar(80) [note: 'home | onboarding']
+  resume_context              jsonb
+  financial_profile_completed boolean     [not null, default: false]
+  goals_set                   boolean     [not null, default: false]
+  import_attempted            boolean     [not null, default: false]
+  biometric_prompted          boolean     [not null, default: false]
+  min_doc_threshold_met       boolean     [not null, default: false]
+  last_checkpoint_at          timestamptz [not null]
+  completed_at                timestamptz
+  created_at                  timestamptz [not null]
+  updated_at                  timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 5 — B2B CORPORATIVO  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table company [headercolor: #5B9BD5, note: 'L5 · Empresa contratante'] {
+  company_id          uuid         [pk]
+  name                varchar(200) [not null]
+  country_id          bigint       [not null, ref: > country.country_id]
+  document_type_id    bigint       [ref: > document_type.document_type_id]
+  document_number     varchar(50)
+  contact_email       varchar(320)
+  contact_person_name varchar(150)
+  contact_phone       varchar(40)
+  created_at          timestamptz  [not null]
+  updated_at          timestamptz  [not null]
+}
+
+Table company_benefit_contract [headercolor: #5B9BD5, note: 'L5 · Contrato empresa-Walvy'] {
+  contract_id uuid      [pk]
+  company_id  uuid      [not null, ref: > company.company_id]
+  plan_code   varchar(50) [not null]
+  starts_at   date      [not null]
+  ends_at     date
+  is_active   boolean   [not null, default: true]
+  created_at  timestamptz [not null]
+  updated_at  timestamptz [not null]
+}
+
+Table company_eligible_employee [headercolor: #5B9BD5, note: 'L5 · Lista blanca de empleados elegibles'] {
+  eligible_employee_id uuid         [pk]
+  contract_id          uuid         [not null, ref: > company_benefit_contract.contract_id]
+  email                varchar(320) [not null]
+  document_type_id     bigint       [ref: > document_type.document_type_id]
+  document_number      varchar(50)
+  invited_at           timestamptz
+  activated_user_id    uuid         [ref: > app_user.user_id, note: 'Se llena cuando el empleado activa su cuenta']
+  created_at           timestamptz  [not null]
+  updated_at           timestamptz  [not null]
+}
+
+Table benefit_invitation [headercolor: #5B9BD5, note: 'L5 · Ciclo: created→sent→accepted/expired/revoked · 1 activa por empleado'] {
+  invitation_id        uuid        [pk]
+  eligible_employee_id uuid        [not null, ref: > company_eligible_employee.eligible_employee_id]
+  invitation_status    varchar(20) [not null, note: 'created | sent | accepted | expired | revoked']
+  sent_at              timestamptz
+  accepted_at          timestamptz
+  created_at           timestamptz [not null]
+  updated_at           timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 6 — PERFIL Y ALERTAS  [SCHEMA LISTO · ENDPOINTS PENDIENTES]
+// ─────────────────────────────────────────────────────────────────
+
+Table user_financial_profile [headercolor: #F0B429, note: 'L6 · 1:1 con app_user · alimenta motor de deudas · endpoint pendiente'] {
+  user_id                    uuid          [pk, ref: - app_user.user_id]
+  monthly_income_estimate    decimal       [note: 'Ingreso mensual declarado']
+  stable_expenses_note       text          [note: 'Nota libre sobre gastos fijos']
+  estimated_payment_capacity decimal       [note: 'Calculado: income − gastos fijos · alimenta Bola de Nieve']
+  currency_id                bigint        [ref: > currency.currency_id]
+  updated_at                 timestamptz   [not null]
+}
+
+Table user_goals [headercolor: #F0B429, note: 'L6 · Metas de largo plazo · endpoint pendiente'] {
+  id             uuid        [pk]
+  user_id        uuid        [not null, ref: > app_user.user_id]
+  goal_type      varchar(40) [not null, note: 'reduce_debt | save_amount | improve_savings_capacity | avoid_late_payments | meet_budget | other']
+  target_value   decimal     [note: 'NULL para metas cualitativas']
+  declared_at    timestamptz [not null]
+  progress_cache jsonb       [note: 'Calculado por job periódico · no lo escribe el usuario']
+  is_active      boolean     [not null, default: true]
+  created_at     timestamptz [not null]
+  updated_at     timestamptz [not null]
+}
+
+Table alert_preferences [headercolor: #F0B429, note: 'L6 · Solo sobreescrituras del usuario · defaults en app_config · endpoint pendiente'] {
+  id           uuid        [pk]
+  user_id      uuid        [not null, ref: > app_user.user_id]
+  alert_type   text        [not null, note: 'budget_threshold | payment_due | weekly_reminder | semaphore_alert']
+  channel      varchar(10) [not null, note: 'in_app | push | email']
+  enabled      boolean     [not null, default: true]
+  intensity    text        [note: 'low | medium | high']
+  cadence_days int         [note: 'Días mínimos entre alertas del mismo tipo']
+  created_at   timestamptz [not null]
+  updated_at   timestamptz [not null]
+
+  indexes {
+    (user_id, alert_type, channel) [unique, name: 'uq_alert_pref_user_type_channel']
+  }
+}
+
+Table notification_queue [headercolor: #F0B429, note: 'L6 · Worker consume WHERE sent_at IS NULL · polimórfica: cualquier módulo escribe aquí'] {
+  id             uuid        [pk]
+  user_id        uuid        [not null, ref: > app_user.user_id]
+  channel        varchar(10) [not null, note: 'in_app | push | email']
+  payload        jsonb       [not null, note: 'título, cuerpo, deep_link']
+  scheduled_for  timestamptz [not null]
+  sent_at        timestamptz [note: 'NULL = pendiente de despacho']
+  reference_type text        [note: 'user_payment | debt | budget_plan_item']
+  reference_id   uuid
+  created_at     timestamptz [not null]
+
+  indexes {
+    (scheduled_for) [name: 'idx_nq_pending', note: 'WHERE sent_at IS NULL']
+    (user_id, scheduled_for) [name: 'idx_nq_user_scheduled', note: 'WHERE sent_at IS NULL']
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 7 — CATÁLOGOS FINANCIEROS  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table financial_institution [headercolor: #5B9BD5, note: 'L7 · Bancos, billeteras, retail · has_api para Open Banking futuro'] {
+  financial_institution_id uuid         [pk]
+  name                     varchar(200) [not null]
+  country_id               bigint       [not null, ref: > country.country_id]
+  institution_type         varchar(20)  [not null, note: 'bank | wallet | retail | broker | cooperative | other']
+  contact_email            varchar(320)
+  contact_phone            varchar(40)
+  has_api                  boolean      [not null, default: false]
+  api_base_url             varchar(500)
+  api_notes                text
+  is_active                boolean      [not null, default: true]
+  created_at               timestamptz  [not null]
+  updated_at               timestamptz  [not null]
+}
+
+Table user_financial_instrument [headercolor: #5B9BD5, note: 'L7 · Cuentas y tarjetas del usuario'] {
+  financial_instrument_id  uuid         [pk]
+  user_id                  uuid         [not null, ref: > app_user.user_id]
+  financial_institution_id uuid         [ref: > financial_institution.financial_institution_id]
+  instrument_type          varchar(30)  [not null, note: 'checking_account | credit_card | debit_card | cash | credit_line | investment | loan | other']
+  instrument_name          varchar(120) [not null]
+  monthly_cost             decimal
+  benefits_notes           text
+  is_active                boolean      [not null, default: true]
+  created_at               timestamptz  [not null]
+  updated_at               timestamptz  [not null]
+}
+
+Table cashflow_node [headercolor: #5B9BD5, note: 'L7 · Origen/destino semántico del dinero'] {
+  cashflow_node_id    uuid         [pk]
+  name                varchar(120) [not null]
+  node_type           varchar(20)  [not null, note: 'origin | destination | instrument | third_party | pocket']
+  is_liquidity_source boolean      [not null, default: false]
+  is_internal_node    boolean      [not null, default: false]
+  owner_user_id       uuid         [ref: > app_user.user_id]
+  is_active           boolean      [not null, default: true]
+  created_at          timestamptz  [not null]
+  updated_at          timestamptz  [not null]
+}
+
+Table category [headercolor: #5B9BD5, note: 'L7 · Jerarquía recursiva · reemplaza categories + subcategories'] {
+  category_id             uuid         [pk]
+  parent_category_id      uuid         [ref: > category.category_id, note: 'NULL = categoría raíz']
+  name                    varchar(120) [not null]
+  is_leaf                 boolean      [not null, default: true]
+  icon                    text
+  color                   text
+  owner_user_id           uuid         [ref: > app_user.user_id, note: 'NULL = categoría del sistema']
+  governance_scope        varchar(20)  [not null, note: 'system | user | suggested | approved']
+  sort_order              int          [not null, default: 0]
+  is_active               boolean      [not null, default: true]
+  replaced_by_category_id uuid         [ref: > category.category_id]
+  created_at              timestamptz  [not null]
+  updated_at              timestamptz  [not null]
+}
+
+Table ant_expense_rules [headercolor: #5B9BD5, note: 'L7 · Reglas de gasto hormiga por usuario'] {
+  id          uuid    [pk]
+  user_id     uuid    [not null, ref: > app_user.user_id]
+  max_amount  decimal
+  category_id uuid    [ref: > category.category_id]
+  is_active   boolean [not null, default: true]
+  created_at  timestamptz [not null]
+  updated_at  timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 8 — PIPELINE DE INGESTA  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table file_upload [headercolor: #5B9BD5, note: 'L8 · Ciclo: uploaded→processing→processed/failed · total = success + failed'] {
+  file_upload_id        uuid         [pk]
+  user_id               uuid         [not null, ref: > app_user.user_id]
+  source_type           varchar(20)  [not null, note: 'document | manual | integration']
+  provider              varchar(80)  [note: 'bank_santander_cl · csv_generic · fintoc']
+  storage_path          varchar(800) [not null]
+  original_filename     varchar(255) [not null]
+  mime_type             varchar(120)
+  file_status_id        bigint       [not null, ref: > status.status_id, note: 'Dominio: file_upload']
+  records_total         int
+  records_success       int
+  records_failed        int
+  error_summary         text
+  error_details_path    varchar(800)
+  uploaded_at           timestamptz  [not null]
+  processing_started_at timestamptz
+  processed_at          timestamptz
+  correlation_id        varchar(120)
+  created_at            timestamptz  [not null]
+  updated_at            timestamptz  [not null]
+}
+
+Table import_line_items [headercolor: #5B9BD5, note: 'L8 · El usuario revisa fila por fila antes de crear movimientos'] {
+  id                 uuid        [pk]
+  file_upload_id     uuid        [not null, ref: > file_upload.file_upload_id]
+  row_index          int
+  raw_row            jsonb
+  normalized         jsonb
+  user_review_status varchar(20) [not null, note: 'pending | accepted | rejected | edited']
+  created_at         timestamptz [not null]
+  updated_at         timestamptz [not null]
+}
+
+Table movement_classification_suggestions [headercolor: #5B9BD5, note: 'L8 · Sugerencias automáticas · el usuario siempre confirma'] {
+  id               uuid         [pk]
+  user_id          uuid         [not null, ref: > app_user.user_id]
+  import_line_id   uuid         [ref: > import_line_items.id]
+  suggested_target varchar(20)  [not null, note: 'debt_plan | bills_payable | transaction']
+  confidence       decimal
+  rule_matched     text
+  user_decision    varchar(15)  [note: 'accepted | ignored | corrected']
+  decided_at       timestamptz
+  created_at       timestamptz  [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 9 — MOVIMIENTOS FINANCIEROS  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table financial_movement [headercolor: #5B9BD5, note: 'L9 · Fuente de verdad transaccional · source_fingerprint UNIQUE evita doble importación · soft-delete'] {
+  movement_id               uuid          [pk]
+  user_id                   uuid          [not null, ref: > app_user.user_id]
+  operation_date            date          [not null]
+  posted_at                 timestamptz
+  raw_description           text          [not null]
+  bank_description          text
+  movement_direction        varchar(3)    [not null, note: 'in | out']
+  amount_in                 decimal       [not null, default: 0]
+  amount_out                decimal       [not null, default: 0]
+  currency_id               bigint        [not null, ref: > currency.currency_id]
+  category_id               uuid          [ref: > category.category_id]
+  category_leaf_id          uuid          [ref: > category.category_id]
+  classification_method     varchar(10)   [not null, note: 'auto | manual | assisted | inherited']
+  classification_confidence decimal
+  is_ant_expense            boolean       [not null, default: false]
+  cashflow_origin_id        uuid          [ref: > cashflow_node.cashflow_node_id]
+  cashflow_destination_id   uuid          [ref: > cashflow_node.cashflow_node_id]
+  financial_institution_id  uuid          [ref: > financial_institution.financial_institution_id]
+  payment_instrument_type   varchar(15)   [note: 'cash | debit | credit | transfer | other']
+  financial_instrument_id   uuid          [ref: > user_financial_instrument.financial_instrument_id]
+  source_type               varchar(20)   [not null, note: 'document | manual | integration']
+  source_reference          varchar(200)
+  source_fingerprint        varchar(200)  [note: 'Hash para deduplicación · UNIQUE WHERE IS NOT NULL AND deleted_at IS NULL']
+  potential_duplicate_flag  boolean       [not null, default: false]
+  file_upload_id            uuid          [ref: > file_upload.file_upload_id]
+  movement_status_id        bigint        [not null, ref: > status.status_id, note: 'Dominio: movement']
+  deleted_at                timestamptz   [note: 'Soft delete']
+  created_at                timestamptz   [not null]
+  updated_at                timestamptz   [not null]
+}
+
+Table movement_review_queue [headercolor: #5B9BD5, note: 'L9 · Movimientos que requieren atención · prioridad 1-5'] {
+  review_id        uuid      [pk]
+  user_id          uuid      [not null, ref: > app_user.user_id]
+  movement_id      uuid      [not null, ref: > financial_movement.movement_id]
+  review_reason    varchar(30) [not null, note: 'uncategorized | possible_duplicate | instrument_conflict | loan_ambiguity | ant_expense_check | other']
+  priority_level   smallint  [not null, note: '1=más urgente · 5=menos urgente']
+  review_status_id bigint    [not null, ref: > status.status_id, note: 'Dominio: review_queue']
+  resolved_at      timestamptz
+  created_at       timestamptz [not null]
+  updated_at       timestamptz [not null]
+}
+
+Table movement_classification_history [headercolor: #5B9BD5, note: 'L9 · Log inmutable de reclasificaciones · auditoría + entrenamiento del motor'] {
+  classification_history_id uuid        [pk]
+  movement_id               uuid        [not null, ref: > financial_movement.movement_id]
+  old_category_id           uuid        [ref: > category.category_id]
+  new_category_id           uuid        [ref: > category.category_id]
+  old_leaf_id               uuid        [ref: > category.category_id]
+  new_leaf_id               uuid        [ref: > category.category_id]
+  change_reason             varchar(120)
+  changed_by                uuid        [ref: > app_user.user_id]
+  changed_at                timestamptz [not null]
+  created_at                timestamptz [not null]
+  updated_at                timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 10 — PRESUPUESTO  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table budget_plan [headercolor: #5B9BD5, note: 'L10 · Un plan por mes · period_month = primer día del mes · histórico preservado'] {
+  budget_plan_id uuid    [pk]
+  user_id        uuid    [not null, ref: > app_user.user_id]
+  period_month   date    [not null, note: 'Primer día del mes. Ej: 2026-05-01']
+  currency_id    bigint  [not null, ref: > currency.currency_id]
+  created_at     timestamptz [not null]
+  updated_at     timestamptz [not null]
+
+  indexes {
+    (user_id, period_month) [unique, name: 'uq_budget_plan_user_month']
+  }
+}
+
+Table budget_plan_item [headercolor: #5B9BD5, note: 'L10 · Límite de gasto por categoría · suggested_by_app distingue ítems del usuario vs de la app'] {
+  budget_plan_item_id uuid    [pk]
+  budget_plan_id      uuid    [not null, ref: > budget_plan.budget_plan_id]
+  category_id         uuid    [not null, ref: > category.category_id]
+  amount_limit        decimal [not null, note: 'Límite de gasto para la categoría ese mes']
+  planned_min         decimal
+  planned_max         decimal
+  suggested_by_app    boolean [not null, default: false]
+  notes               text
+  created_at          timestamptz [not null]
+  updated_at          timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 11 — MOTOR DE DEUDAS (BOLA DE NIEVE)  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table debt [headercolor: #5B9BD5, note: 'L11 · snowball_priority define orden de pago · soft-delete'] {
+  debt_id                  uuid          [pk]
+  user_id                  uuid          [not null, ref: > app_user.user_id]
+  name                     varchar(200)  [not null]
+  creditor_label           text
+  debt_type                varchar(20)   [not null, note: 'consumer | mortgage | credit_card | line | other']
+  debt_source_type         varchar(20)   [note: 'bank | retail | person | other']
+  principal_initial        decimal
+  current_balance          decimal       [not null]
+  currency_id              bigint        [not null, ref: > currency.currency_id]
+  apr_annual               decimal
+  interest_rate_pct        decimal
+  minimum_payment          decimal
+  installments_total       int
+  installments_remaining   int
+  due_day                  int           [note: 'Día del mes del vencimiento · 1-31']
+  next_due_date            date
+  estimated_payoff_date    date
+  released_cashflow_amount decimal       [note: 'Flujo libre que se recupera al cerrar esta deuda']
+  financial_instrument_id  uuid          [ref: > user_financial_instrument.financial_instrument_id]
+  snowball_priority        int           [note: 'Orden en la estrategia bola de nieve']
+  debt_status_id           bigint        [not null, ref: > status.status_id, note: 'Dominio: debt']
+  metadata                 jsonb         [not null, default: '{}']
+  deleted_at               timestamptz   [note: 'Soft delete']
+  created_at               timestamptz   [not null]
+  updated_at               timestamptz   [not null]
+}
+
+Table debt_schedules [headercolor: #5B9BD5, note: 'L11 · Cronograma de cuotas proyectadas'] {
+  id                uuid    [pk]
+  debt_id           uuid    [not null, ref: > debt.debt_id]
+  installment_no    int     [not null]
+  due_date          date    [not null]
+  planned_principal decimal
+  planned_interest  decimal
+  created_at        timestamptz [not null]
+}
+
+Table debt_payments [headercolor: #5B9BD5, note: 'L11 · Log inmutable de abonos · linkeable a financial_movement'] {
+  id          uuid    [pk]
+  debt_id     uuid    [not null, ref: > debt.debt_id]
+  paid_at     timestamptz [not null]
+  amount      decimal [not null]
+  movement_id uuid    [ref: > financial_movement.movement_id, note: 'Conciliación con movimiento real']
+  notes       text
+  created_at  timestamptz [not null]
+}
+
+Table debt_attachments [headercolor: #5B9BD5, note: 'L11 · Contratos y cartolas adjuntas · parsed_summary para parsing automático'] {
+  id                uuid   [pk]
+  user_id           uuid   [not null, ref: > app_user.user_id]
+  debt_id           uuid   [ref: > debt.debt_id]
+  storage_key       text   [not null]
+  mime_type         text
+  original_filename text
+  uploaded_at       timestamptz [not null]
+  parsed_summary    jsonb  [note: 'Resultado del parsing automático del documento']
+}
+
+Table debt_payoff_simulation [headercolor: #5B9BD5, note: 'L11 · Simulación de estrategia de pago · extra_monthly + lump_sum'] {
+  simulation_id        uuid    [pk]
+  user_id              uuid    [not null, ref: > app_user.user_id]
+  start_date           date    [not null]
+  extra_monthly_payment decimal [not null, default: 0]
+  initial_lump_sum     decimal [not null, default: 0]
+  simulation_status    varchar(20) [not null, note: 'draft | active | archived']
+  created_at           timestamptz [not null]
+  updated_at           timestamptz [not null]
+}
+
+Table debt_payoff_schedule [headercolor: #5B9BD5, note: 'L11 · Detalle por deuda: orden, meses para cerrar, flujo liberado'] {
+  schedule_id                   uuid    [pk]
+  simulation_id                 uuid    [not null, ref: > debt_payoff_simulation.simulation_id]
+  debt_id                       uuid    [not null, ref: > debt.debt_id]
+  sequence_order                int     [not null]
+  estimated_months_to_close     int     [not null]
+  estimated_close_date          date
+  released_cashflow_after_close decimal [not null, default: 0]
+  created_at                    timestamptz [not null]
+  updated_at                    timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 12 — AGENDA DE PAGOS  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table user_payment [headercolor: #5B9BD5, note: 'L12 · traffic_light_state semáforo de vencimiento · source=system para pagos de deuda automáticos'] {
+  user_payment_id          uuid    [pk]
+  user_id                  uuid    [not null, ref: > app_user.user_id]
+  debt_id                  uuid    [ref: > debt.debt_id]
+  movement_id              uuid    [ref: > financial_movement.movement_id, note: 'Conciliación al pagar']
+  title                    varchar(200) [not null]
+  amount                   decimal [not null]
+  currency_id              bigint  [not null, ref: > currency.currency_id]
+  due_date                 date    [not null]
+  source                   varchar(10) [not null, note: 'user | system']
+  traffic_light_state      varchar(10) [note: 'green | yellow | red']
+  is_recurring             boolean [not null, default: false]
+  recurrence_interval_days int
+  notes                    text
+  user_payment_status_id   bigint  [not null, ref: > status.status_id, note: 'Dominio: user_payment']
+  paid_at                  timestamptz
+  cancelled_at             timestamptz
+  created_at               timestamptz [not null]
+  updated_at               timestamptz [not null]
+}
+
+Table recurring_payment_suggestions [headercolor: #5B9BD5, note: 'L12 · Pagos recurrentes detectados por patrones · el usuario decide si los agrega'] {
+  id                uuid        [pk]
+  user_id           uuid        [not null, ref: > app_user.user_id]
+  source            varchar(20) [not null, note: 'movement_pattern | import']
+  suggested_payload jsonb       [not null]
+  status            varchar(25) [not null, note: 'pending_user_confirm | accepted | dismissed']
+  created_at        timestamptz [not null]
+  updated_at        timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 13 — MONETIZACIÓN  [IMPLEMENTADO PARCIAL]
+// ─────────────────────────────────────────────────────────────────
+
+Table plan [headercolor: #27AE60, note: 'L13 · free · pro_monthly · pro_annual · IMPLEMENTADO'] {
+  plan_id        uuid        [pk]
+  code           varchar(50) [not null, unique, note: 'monthly | annual | free']
+  name_es        varchar(120) [not null]
+  billing_period varchar(10) [note: 'monthly | annual']
+  is_active      boolean     [not null, default: true]
+  created_at     timestamptz [not null]
+  updated_at     timestamptz [not null]
+}
+
+Table plan_price [headercolor: #27AE60, note: 'L13 · Bitemporal: valid_from/valid_to · precio cobrado congelado en subscription.billed_amount · IMPLEMENTADO'] {
+  plan_price_id uuid    [pk]
+  plan_id       uuid    [not null, ref: > plan.plan_id]
+  country_id    bigint  [not null, ref: > country.country_id]
+  currency_id   bigint  [not null, ref: > currency.currency_id]
+  price_amount  decimal [not null]
+  valid_from    date    [not null]
+  valid_to      date    [note: 'NULL = precio vigente · UNIQUE WHERE is_active AND valid_to IS NULL']
+  is_active     boolean [not null, default: true]
+  created_at    timestamptz [not null]
+  updated_at    timestamptz [not null]
+}
+
+Table payment_method [headercolor: #5B9BD5, note: 'L13 · Métodos guardados tokenizados · sin datos PCI · SIN INICIAR'] {
+  payment_method_id           uuid        [pk]
+  owner_type                  varchar(10) [not null, note: 'USER | COMPANY']
+  user_id                     uuid        [ref: > app_user.user_id]
+  company_id                  uuid        [ref: > company.company_id]
+  provider                    varchar(50) [not null, note: 'stripe | mercadopago | flow']
+  provider_customer_ref       varchar(120)
+  provider_payment_method_ref varchar(120) [not null]
+  card_brand                  varchar(30)
+  card_last4                  varchar(4)
+  card_exp_month              smallint
+  card_exp_year               smallint
+  is_default                  boolean     [not null, default: false]
+  payment_method_status_id    bigint      [not null, ref: > status.status_id, note: 'Dominio: payment_method']
+  created_at                  timestamptz [not null]
+  updated_at                  timestamptz [not null]
+}
+
+Table subscription [headercolor: #27AE60, note: 'L13 · B2B/B2C · billed_amount snapshot inmutable · gift_token UNIQUE · IMPLEMENTADO'] {
+  subscription_id        uuid    [pk]
+  user_id                uuid    [not null, ref: > app_user.user_id]
+  company_id             uuid    [ref: > company.company_id]
+  origin                 varchar(3)  [not null, note: 'B2B | B2C']
+  plan_id                uuid    [not null, ref: > plan.plan_id]
+  plan_price_id          uuid    [ref: > plan_price.plan_price_id]
+  billed_amount          decimal [note: 'Snapshot del precio cobrado · inmutable']
+  billed_currency_id     bigint  [ref: > currency.currency_id]
+  subscription_status_id bigint  [not null, ref: > status.status_id, note: 'Dominio: subscription']
+  starts_at              timestamptz [not null]
+  ends_at                timestamptz
+  provider               varchar(50) [not null]
+  external_subscription_ref varchar(120)
+  external_payment_ref   varchar(120)
+  renew_at               timestamptz
+  cancelled_at           timestamptz
+  is_gift                boolean     [not null, default: false]
+  gift_sender_name       varchar(120)
+  gift_sender_email      varchar(320)
+  gift_recipient_email   varchar(320)
+  gift_message           varchar(250)
+  gift_token             varchar(120) [note: 'UNIQUE WHERE IS NOT NULL']
+  gift_redeemed_at       timestamptz
+  created_at             timestamptz [not null]
+  updated_at             timestamptz [not null]
+}
+
+Table payment_order [headercolor: #27AE60, note: 'L13 · commerce_order UNIQUE = idempotencia de webhooks · IMPLEMENTADO'] {
+  id                 uuid    [pk]
+  user_id            uuid    [not null, ref: > app_user.user_id]
+  subscription_id    uuid    [ref: > subscription.subscription_id]
+  commerce_order     text    [not null, unique, note: 'Idempotencia ante webhooks duplicados']
+  provider           varchar(50) [not null, note: 'flow | stripe | mercadopago']
+  provider_token     text
+  provider_order_ref text
+  amount             decimal [not null]
+  currency_id        bigint  [not null, ref: > currency.currency_id]
+  status             varchar(20) [not null, note: 'pending | paid | failed | expired | refunded']
+  provider_response  jsonb
+  paid_at            timestamptz
+  created_at         timestamptz [not null]
+  updated_at         timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 14 — GAMIFICACIÓN  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table gamification_rules [headercolor: #5B9BD5, note: 'L14 · event_type → puntos · modificable desde backoffice'] {
+  id                  uuid    [pk]
+  event_type          text    [not null, unique, note: 'debt_payment_registered | budget_respected | all_movements_categorized']
+  points              int     [not null, default: 0]
+  label               text    [not null]
+  description         text
+  is_active           boolean [not null, default: true]
+  updated_by_admin_id uuid    [ref: > admin_users.id]
+  created_at          timestamptz [not null]
+  updated_at          timestamptz [not null]
+}
+
+Table gamification_events [headercolor: #5B9BD5, note: 'L14 · Log inmutable de puntos otorgados'] {
+  id             uuid   [pk]
+  user_id        uuid   [not null, ref: > app_user.user_id]
+  event_type     text   [not null]
+  points         int    [not null]
+  reference_type text
+  reference_id   uuid
+  created_at     timestamptz [not null]
+}
+
+Table user_gamification_stats [headercolor: #5B9BD5, note: 'L14 · Caché 1:1 · actualización incremental · no recalcula desde 0'] {
+  user_id          uuid [pk, ref: - app_user.user_id]
+  total_points     int  [not null, default: 0]
+  level            int  [not null, default: 1]
+  last_computed_at timestamptz [not null]
+}
+
+Table user_score_history [headercolor: #5B9BD5, note: 'L14 · Historial de puntos por período para gráficos'] {
+  id           uuid   [pk]
+  user_id      uuid   [not null, ref: > app_user.user_id]
+  period_start date   [not null]
+  period_end   date   [not null]
+  points       int    [not null]
+  level        int    [not null]
+  created_at   timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 15 — MENSAJERÍA Y RECOMENDACIONES  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table message_rule [headercolor: #5B9BD5, note: 'L15 · Reglas son datos · agregar regla = INSERT · 7 seeds incluidos'] {
+  message_rule_id uuid        [pk]
+  code            varchar(80) [not null, unique, note: 'leaks_detected | pay_next | debt_idle']
+  name_es         varchar(150) [not null]
+  description_es  text
+  context         varchar(20) [note: 'home | budget | debt | payments | profile | global']
+  deep_link       text        [note: 'Ruta de acción directa en la app']
+  priority        smallint    [not null, note: '1=mayor prioridad · 5=menor']
+  is_active       boolean     [not null, default: true]
+  created_at      timestamptz [not null]
+  updated_at      timestamptz [not null]
+}
+
+Table message_event [headercolor: #5B9BD5, note: 'L15 · Instancia de mensaje para un usuario · suppressed_until controla frecuencia'] {
+  message_event_id         uuid   [pk]
+  user_id                  uuid   [not null, ref: > app_user.user_id]
+  message_rule_id          uuid   [not null, ref: > message_rule.message_rule_id]
+  context_period_month     date
+  payload                  jsonb  [not null, note: 'Evidencia/valores sin datos sensibles']
+  message_event_status_id  bigint [not null, ref: > status.status_id, note: 'Dominio: message_event']
+  shown_at                 timestamptz
+  suppressed_until         timestamptz [note: 'Re-mostrar después de esta fecha']
+  created_at               timestamptz [not null]
+  updated_at               timestamptz [not null]
+}
+
+Table user_message_interaction [headercolor: #5B9BD5, note: 'L15 · Cómo interactuó el usuario · afina el motor de mensajería'] {
+  interaction_id   uuid        [pk]
+  user_id          uuid        [not null, ref: > app_user.user_id]
+  message_event_id uuid        [not null, ref: > message_event.message_event_id]
+  action           varchar(20) [not null, note: 'opened | dismissed | snoozed | completed']
+  action_at        timestamptz [not null]
+  note             text
+  created_at       timestamptz [not null]
+  updated_at       timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 16 — ASISTENTE IA  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table ai_conversations [headercolor: #5B9BD5, note: 'L16 · Sesión de conversación con el asistente'] {
+  id         uuid [pk]
+  user_id    uuid [not null, ref: > app_user.user_id]
+  title      text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table ai_messages [headercolor: #5B9BD5, note: 'L16 · Mensajes de la conversación · token_usage para seguimiento de costos'] {
+  id              uuid        [pk]
+  conversation_id uuid        [not null, ref: > ai_conversations.id]
+  role            varchar(10) [not null, note: 'user | assistant | system']
+  content         text        [not null]
+  token_usage     jsonb
+  created_at      timestamptz [not null]
+}
+
+Table ai_tool_invocations [headercolor: #5B9BD5, note: 'L16 · Tool calls del asistente · debugging y auditoría'] {
+  id         uuid [pk]
+  message_id uuid [not null, ref: > ai_messages.id]
+  tool_name  text [not null, note: 'get_monthly_summary | list_upcoming_payments']
+  args       jsonb
+  result     jsonb
+  created_at timestamptz [not null]
+}
+
+Table ai_context_snapshots [headercolor: #5B9BD5, note: 'L16 · Snapshot financiero al inicio de cada conversación · evita queries en tiempo real'] {
+  id                uuid  [pk]
+  conversation_id   uuid  [not null, ref: > ai_conversations.id]
+  snapshot_date     date  [not null]
+  financial_summary jsonb [not null]
+  created_at        timestamptz [not null]
+}
+
+Table faq_articles [headercolor: #5B9BD5, note: 'L16 · Base de conocimiento · full-text search en español'] {
+  id         uuid    [pk]
+  slug       text    [not null, unique]
+  title      text    [not null]
+  body       text    [not null]
+  locale     text    [not null, default: 'es']
+  tags       text[]
+  sort_order int     [not null, default: 0]
+  is_active  boolean [not null, default: true]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 17 — ADMINISTRACIÓN Y AUDITORÍA  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table admin_users [headercolor: #5B9BD5, note: 'L17 · Separado de app_user por seguridad'] {
+  id            uuid        [pk]
+  email         text        [not null, unique]
+  password_hash text        [not null]
+  name          text        [not null]
+  role          varchar(15) [not null, note: 'super_admin | operator']
+  is_active     boolean     [not null, default: true]
+  last_login_at timestamptz
+  created_at    timestamptz [not null]
+  updated_at    timestamptz [not null]
+}
+
+Table admin_audit_log [headercolor: #5B9BD5, note: 'L17 · before_data + after_data JSONB · trazabilidad completa de acciones admin'] {
+  id          uuid   [pk]
+  admin_id    uuid   [ref: > admin_users.id]
+  action      text   [not null]
+  entity      text   [not null]
+  entity_id   uuid
+  before_data jsonb
+  after_data  jsonb
+  created_at  timestamptz [not null]
+}
+
+Table audit_log [headercolor: #5B9BD5, note: 'L17 · Acciones de usuarios finales'] {
+  id         uuid [pk]
+  user_id    uuid [ref: > app_user.user_id]
+  action     text [not null]
+  entity     text [not null]
+  entity_id  uuid
+  diff       jsonb
+  created_at timestamptz [not null]
+}
+
+Table report_snapshots [headercolor: #5B9BD5, note: 'L17 · Reportes pre-computados para backoffice · MRR, churn, usuarios activos'] {
+  id                    uuid   [pk]
+  report_type           text   [not null]
+  period_start          date   [not null]
+  period_end            date   [not null]
+  payload               jsonb  [not null]
+  generated_at          timestamptz [not null]
+  generated_by_admin_id uuid   [ref: > admin_users.id]
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LAYER 18 — READ MODELS CQRS  [SIN INICIAR]
+// ─────────────────────────────────────────────────────────────────
+
+Table user_month_diagnosis_summary [headercolor: #5B9BD5, note: 'L18 CQRS · Calculado por job batch · Home: semáforo, capacidad de ahorro, calidad del dato'] {
+  user_id                         uuid          [not null, ref: > app_user.user_id]
+  month                           date          [not null, note: 'Primer día del mes']
+  computed_at                     timestamptz   [not null]
+  source_watermark_at             timestamptz   [not null]
+  rule_version                    varchar(50)   [not null]
+  traffic_light_status            varchar(6)    [not null, note: 'green | yellow | red']
+  traffic_light_reason_codes      text[]        [not null]
+  visible_savings_capacity_amount decimal       [not null, default: 0]
+  visible_savings_capacity_pct    decimal
+  uncategorized_movements_count   int           [not null, default: 0]
+  data_quality_level              varchar(6)    [not null, note: 'high | medium | low']
+  data_source_mix                 varchar(8)    [not null, note: 'document | manual | both']
+  next_action_type                varchar(15)   [note: 'pay | debt | budget | categorize | import']
+  next_action_ref_id              uuid
+  created_at                      timestamptz   [not null]
+  updated_at                      timestamptz   [not null]
+
+  indexes {
+    (user_id, month) [pk]
+  }
+}
+
+Table user_month_debt_priority_summary [headercolor: #5B9BD5, note: 'L18 CQRS · Calculado por job batch · Pantalla Deudas: ranking bola de nieve'] {
+  user_id                  uuid    [not null, ref: > app_user.user_id]
+  month                    date    [not null]
+  debt_id                  uuid    [not null, ref: > debt.debt_id]
+  priority_rank            int     [not null]
+  priority_score           decimal [not null]
+  min_payment_amount       decimal [not null, default: 0]
+  estimated_payoff_date    date
+  released_cashflow_amount decimal
+  computed_at              timestamptz [not null]
+  source_watermark_at      timestamptz [not null]
+  rule_version             varchar(50) [not null]
+  created_at               timestamptz [not null]
+  updated_at               timestamptz [not null]
+
+  indexes {
+    (user_id, month, debt_id) [pk]
+  }
+}
+
+Table user_upcoming_payments_summary [headercolor: #5B9BD5, note: 'L18 CQRS · Calculado por job batch · Home/Pagos: próximos vencimientos'] {
+  user_id                uuid    [not null, ref: > app_user.user_id]
+  window_start           date    [not null]
+  window_end             date    [not null]
+  user_payment_id        uuid    [not null, ref: > user_payment.user_payment_id]
+  due_date               date    [not null]
+  amount                 decimal [not null]
+  user_payment_status_id bigint  [not null, ref: > status.status_id]
+  computed_at            timestamptz [not null]
+  source_watermark_at    timestamptz [not null]
+  rule_version           varchar(50) [not null]
+  created_at             timestamptz [not null]
+  updated_at             timestamptz [not null]
+
+  indexes {
+    (user_id, window_start, window_end, user_payment_id) [pk]
+  }
+}
+
+Table user_month_leaks_summary [headercolor: #5B9BD5, note: 'L18 CQRS · Calculado por job batch · Home: fugas del mes, gastos hormiga, top categorías'] {
+  user_id             uuid    [not null, ref: > app_user.user_id]
+  month               date    [not null]
+  leaks_total_amount  decimal [not null, default: 0]
+  leaks_count         int     [not null, default: 0]
+  ant_expense_total   decimal [not null, default: 0]
+  top_categories      jsonb
+  computed_at         timestamptz [not null]
+  source_watermark_at timestamptz [not null]
+  rule_version        varchar(50) [not null]
+  created_at          timestamptz [not null]
+  updated_at          timestamptz [not null]
+
+  indexes {
+    (user_id, month) [pk]
+  }
+}

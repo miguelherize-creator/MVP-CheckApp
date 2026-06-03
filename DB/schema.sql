@@ -1698,6 +1698,367 @@ INSERT INTO app_config(key, value, value_type, description) VALUES
   ('diagnosis.recalc_trigger', '"on_movement_change"', 'text', 'Cuándo recalcular el read model de diagnóstico')
 ON CONFLICT (key) DO NOTHING;
 
+-- ============================================================================
+-- DOCUMENTACIÓN — COMMENT ON TABLE / COLUMN
+-- Jeanne Girard recomendó incluir esto en el DDL ejecutable (mayo 2026).
+-- Los comentarios quedan embebidos en el catálogo de PostgreSQL y son
+-- visibles con \d+ en psql, en DBeaver, en DataGrip y en pg_dump.
+-- ============================================================================
+
+-- ─── LAYER 0 — CATÁLOGOS ISO ────────────────────────────────────────────────
+
+COMMENT ON TABLE country IS 'L0 · Catálogo de países. ISO-3166-1 alpha-2. Referencia global para usuarios, empresas e instituciones.';
+COMMENT ON COLUMN country.country_code IS 'Código ISO-3166-1 alpha-2. Ej: CL, CO, AR, PE, MX.';
+
+COMMENT ON TABLE currency IS 'L0 · Catálogo de monedas. ISO-4217. Referencia global para instrumentos, movimientos y precios.';
+COMMENT ON COLUMN currency.currency_code IS 'Código ISO-4217. Ej: CLP, USD, COP.';
+COMMENT ON COLUMN currency.minor_units IS 'Decimales de la moneda: 0 para CLP, 2 para USD. Controla cómo se formatean montos.';
+
+COMMENT ON TABLE country_currency IS 'L0 · Relación N:M entre país y moneda. is_primary garantiza (por índice parcial) una sola moneda primaria por país.';
+COMMENT ON COLUMN country_currency.is_primary IS 'Moneda por defecto del país. Un índice parcial UNIQUE garantiza solo una moneda primaria por country_id.';
+
+COMMENT ON TABLE document_type IS 'L0 · Tipos de documento de identidad por país (RUT, DNI, PASSPORT, etc.). NULL en country_id = aplica globalmente.';
+COMMENT ON COLUMN document_type.subject_scope IS 'A quién aplica el tipo de documento: person | company | both.';
+
+-- ─── LAYER 1 — STATUS CENTRALIZADO ─────────────────────────────────────────
+
+COMMENT ON TABLE status_domain IS 'L1 · Dominios de status. Cada entidad con estado tiene su dominio (user, debt, movement, etc.). Agregar dominio = INSERT, sin ALTER TYPE.';
+COMMENT ON TABLE status IS 'L1 · Estados por dominio. Reemplaza ENUMs rígidos de PostgreSQL. Agregar estado = INSERT. El trigger enforce_status_domain valida que cada FK de status pertenezca al dominio correcto.';
+COMMENT ON COLUMN status.code IS 'Código interno del estado. Ej: active, trialing, pending_verification, paid, failed.';
+COMMENT ON COLUMN status.sort_order IS 'Orden de visualización en listas desplegables de backoffice.';
+
+-- ─── LAYER 2 — RBAC ─────────────────────────────────────────────────────────
+
+COMMENT ON TABLE role IS 'L2 · Roles del sistema. Ej: admin, support, user. Asignado a cada app_user.';
+COMMENT ON TABLE permission IS 'L2 · Permisos granulares por endpoint y método HTTP. Combinados con role_permission forman el RBAC completo.';
+COMMENT ON COLUMN permission.path_pattern IS 'Patrón de ruta protegida. Ej: /api/movements*. NULL = permiso lógico sin ruta específica.';
+COMMENT ON COLUMN permission.http_methods IS 'Métodos HTTP permitidos. Ej: GET,POST. NULL = todos.';
+COMMENT ON TABLE role_permission IS 'L2 · Pivot rol-permiso. PK compuesta (role_id, permission_id). Un rol puede tener N permisos.';
+
+-- ─── LAYER 3 — CONFIGURACIÓN Y SALUD ────────────────────────────────────────
+
+COMMENT ON TABLE financial_health_level IS 'L3 · Niveles de salud financiera del usuario. Corresponde al avatar Walvy (overwhelmed, transitioning, in_control). Actualizado por job periódico, no por el usuario.';
+COMMENT ON COLUMN financial_health_level.asset_path IS 'Ruta del asset del avatar Walvy correspondiente a este nivel. Ej: /assets/avatars/overwhelmed.png.';
+
+COMMENT ON TABLE app_config IS 'L3 · Configuración global de la app, clave-valor tipado. Ajustable desde backoffice sin deploy. Los defaults de alertas viven aquí y son leídos cuando el usuario no tiene fila en alert_preferences.';
+COMMENT ON COLUMN app_config.key IS 'Clave única de configuración. Ej: trial_days_default, budget.threshold.yellow_pct, ai.context_refresh_messages.';
+COMMENT ON COLUMN app_config.value IS 'Valor en JSONB. El tipo real lo define value_type.';
+COMMENT ON COLUMN app_config.value_type IS 'Tipo del valor: integer | decimal | boolean | json | text. Usado por el backend para parsear correctamente.';
+
+-- ─── LAYER 4 — IDENTIDAD Y AUTH ─────────────────────────────────────────────
+
+COMMENT ON TABLE app_user IS 'L4 · Tabla central de usuario. Multi-país, multi-moneda, RBAC, trial sin tarjeta, soft-delete. Combina auth local y OAuth (post-MVP).';
+COMMENT ON COLUMN app_user.email IS 'Email de login. NULL si el usuario se registró solo con OAuth (post-MVP).';
+COMMENT ON COLUMN app_user.password_hash IS 'Hash bcrypt ≥12 rondas. NULL si el usuario usa solo auth_provider externo.';
+COMMENT ON COLUMN app_user.auth_provider IS 'Proveedor OAuth externo: google | apple. NULL para auth local. Post-MVP.';
+COMMENT ON COLUMN app_user.identifier_type IS 'Tipo de identificador primario: email | rut | username. Controla el flujo de login.';
+COMMENT ON COLUMN app_user.notification_email IS 'Email de notificaciones. Puede diferir del email de login. NULL hasta que el usuario lo configure.';
+COMMENT ON COLUMN app_user.notification_email_verified_at IS 'NULL hasta que el usuario confirme el nuevo email de notificaciones.';
+COMMENT ON COLUMN app_user.trial_started_at IS 'Inicio del período de prueba. NULL si el usuario nunca inició trial.';
+COMMENT ON COLUMN app_user.trial_ends_at IS 'Fin del trial = trial_started_at + app_config[trial_days_default]. El par started/ends se valida con chk_trial_pair.';
+COMMENT ON COLUMN app_user.current_financial_health_level_id IS 'Nivel de salud financiera actual. Actualizado por job periódico basado en diagnóstico mensual.';
+COMMENT ON COLUMN app_user.deleted_at IS 'Soft delete. Nunca se ejecuta DELETE físico en esta tabla. NULL = usuario activo.';
+
+COMMENT ON TABLE refresh_tokens IS 'L4 · Tokens de refresh JWT. Almacenados como hash SHA-256. Rotación en cada uso. TTL 30 días.';
+COMMENT ON COLUMN refresh_tokens.token_hash IS 'Hash SHA-256 del refresh token. Nunca se almacena el token en claro.';
+COMMENT ON COLUMN refresh_tokens.revoked_at IS 'NULL = sesión activa. Fecha de revocación si el token fue invalidado (logout, rotación, sospecha).';
+
+COMMENT ON TABLE password_reset_tokens IS 'L4 · OTPs de 6 dígitos para reset de contraseña. TTL 15 minutos, un solo uso.';
+COMMENT ON COLUMN password_reset_tokens.used_at IS 'NULL = OTP no usado. Fecha de uso para invalidación tras primer uso.';
+
+COMMENT ON TABLE email_verification_tokens IS 'L4 · OTPs de 6 dígitos para verificación de email. TTL 15 minutos, máximo 5 intentos.';
+COMMENT ON COLUMN email_verification_tokens.attempts IS 'Contador de intentos fallidos. Al llegar a 5 el token se invalida automáticamente.';
+
+COMMENT ON TABLE biometric_preferences IS 'L4 · Preferencias biométricas del usuario. Relación 1:1 con app_user. Se crea en el paso de setup biométrico del onboarding.';
+COMMENT ON COLUMN biometric_preferences.method IS 'Método biométrico configurado: face_id | fingerprint | device_pin.';
+COMMENT ON COLUMN biometric_preferences.device_id IS 'Identificador del dispositivo donde se configuró la biometría.';
+
+COMMENT ON TABLE user_onboarding_state IS 'L4 · Estado del onboarding. Relación 1:1 con app_user. Permite retomar el flujo desde cualquier pantalla si el usuario abandona.';
+COMMENT ON COLUMN user_onboarding_state.current_step IS 'Paso actual del onboarding: email_verification | biometric_setup | profile_basic | welcome | document_upload | document_processing. NULL = completado.';
+COMMENT ON COLUMN user_onboarding_state.resume_surface IS 'Pantalla donde retomar si el usuario vuelve: home | onboarding.';
+COMMENT ON COLUMN user_onboarding_state.resume_context IS 'Contexto adicional para retomar el flujo (JSONB libre). Ej: step intermedio de una pantalla multi-paso.';
+COMMENT ON COLUMN user_onboarding_state.financial_profile_completed IS 'true cuando el usuario completó user_financial_profile.';
+COMMENT ON COLUMN user_onboarding_state.goals_set IS 'true cuando el usuario declaró al menos una meta en user_goals.';
+COMMENT ON COLUMN user_onboarding_state.import_attempted IS 'true cuando el usuario subió al menos un archivo (cartola o manual).';
+COMMENT ON COLUMN user_onboarding_state.min_doc_threshold_met IS 'true cuando se procesaron suficientes movimientos para mostrar diagnóstico inicial.';
+
+-- ─── LAYER 5 — B2B CORPORATIVO ──────────────────────────────────────────────
+
+COMMENT ON TABLE company IS 'L5 · Empresa contratante del canal B2B. Una empresa puede tener uno o más contratos de beneficio con Walvy.';
+COMMENT ON TABLE company_benefit_contract IS 'L5 · Contrato entre empresa y Walvy. Define el plan y vigencia del beneficio corporativo para los empleados.';
+COMMENT ON COLUMN company_benefit_contract.plan_code IS 'Código interno del convenio. Ej: walvy_premium_12m. No referencia la tabla plan directamente.';
+COMMENT ON TABLE company_eligible_employee IS 'L5 · Lista blanca de empleados elegibles para el beneficio. Se crea desde el backoffice antes de enviar invitaciones.';
+COMMENT ON COLUMN company_eligible_employee.activated_user_id IS 'FK a app_user. Se llena cuando el empleado acepta la invitación y crea su cuenta. NULL = aún no activado.';
+COMMENT ON TABLE benefit_invitation IS 'L5 · Invitación enviada a un empleado elegible. Solo puede haber una invitación activa (created o sent) por empleado (índice parcial único).';
+COMMENT ON COLUMN benefit_invitation.invitation_status IS 'Ciclo de vida: created → sent → accepted | expired | revoked.';
+
+-- ─── LAYER 6 — PERFIL Y ALERTAS ─────────────────────────────────────────────
+
+COMMENT ON TABLE user_financial_profile IS 'L6 · Perfil financiero base declarado por el usuario. Relación 1:1 con app_user. Lo completa en el onboarding y puede actualizarlo. Alimenta el motor de deudas (campo estimated_payment_capacity).';
+COMMENT ON COLUMN user_financial_profile.monthly_income_estimate IS 'Ingreso mensual estimado declarado por el usuario. Referencia para calcular capacidad de pago.';
+COMMENT ON COLUMN user_financial_profile.stable_expenses_note IS 'Nota libre del usuario sobre sus gastos fijos (arriendo, servicios, etc.). No estructurada intencionalmente para el MVP.';
+COMMENT ON COLUMN user_financial_profile.estimated_payment_capacity IS 'Capacidad estimada de abono mensual a deudas = income − stable_expenses. Calculado por el backend al guardar el perfil. Lo consume el motor bola de nieve.';
+
+COMMENT ON TABLE user_goals IS 'L6 · Metas financieras de largo plazo declaradas por el usuario. N metas por usuario. No tienen período mensual.';
+COMMENT ON COLUMN user_goals.goal_type IS 'Tipo de meta: reduce_debt | save_amount | improve_savings_capacity | avoid_late_payments | meet_budget | other.';
+COMMENT ON COLUMN user_goals.target_value IS 'Valor numérico objetivo. NULL para metas cualitativas (ej: avoid_late_payments no tiene monto).';
+COMMENT ON COLUMN user_goals.progress_cache IS 'JSONB con métricas de progreso calculadas por job periódico. El usuario no escribe aquí. Ej: { paid_so_far: 150000, percent: 5 }.';
+
+COMMENT ON TABLE alert_preferences IS 'L6 · Sobreescrituras de preferencias de alerta del usuario. Solo se inserta una fila cuando el usuario cambia el default. Los defaults globales viven en app_config. Un worker lee esta tabla para saber si despachar o no.';
+COMMENT ON COLUMN alert_preferences.alert_type IS 'Tipo de alerta. Ej: budget_threshold | payment_due | weekly_reminder | semaphore_alert.';
+COMMENT ON COLUMN alert_preferences.enabled IS 'true = el usuario quiere recibir esta alerta. false = la desactivó explícitamente.';
+COMMENT ON COLUMN alert_preferences.intensity IS 'Intensidad de la alerta elegida por el usuario: low | medium | high.';
+COMMENT ON COLUMN alert_preferences.cadence_days IS 'Días mínimos entre alertas del mismo tipo para este usuario. Evita spam.';
+
+COMMENT ON TABLE notification_queue IS 'L6 · Cola polimórfica de despacho de notificaciones. Cualquier módulo deposita notificaciones aquí; un worker las consume (WHERE sent_at IS NULL). No hay acoplamiento entre módulos y canales.';
+COMMENT ON COLUMN notification_queue.payload IS 'JSONB con título, cuerpo y deep_link de la notificación. El worker lo envía al canal correspondiente sin interpretar el contenido.';
+COMMENT ON COLUMN notification_queue.scheduled_for IS 'Momento a partir del cual el worker puede despachar esta notificación.';
+COMMENT ON COLUMN notification_queue.sent_at IS 'NULL = pendiente de despacho. Fecha de envío real cuando el worker la procesó.';
+COMMENT ON COLUMN notification_queue.reference_type IS 'Tipo de entidad que originó la notificación. Ej: user_payment, debt, budget_plan_item. Polimórfico.';
+COMMENT ON COLUMN notification_queue.reference_id IS 'UUID de la entidad que originó la notificación. Junto con reference_type forma una referencia polimórfica.';
+
+-- ─── LAYER 7 — CATÁLOGOS FINANCIEROS ────────────────────────────────────────
+
+COMMENT ON TABLE financial_institution IS 'L7 · Catálogo de instituciones financieras (bancos, billeteras, retail, etc.) por país. has_api marca las que tienen integración disponible para Open Banking futuro.';
+COMMENT ON COLUMN financial_institution.has_api IS 'true = la institución tiene API disponible para importación automática (Open Banking). Controla con api_base_url.';
+COMMENT ON COLUMN financial_institution.api_base_url IS 'URL base de la API. Requerida si has_api = true (enforced por chk_fin_inst_api_fields).';
+
+COMMENT ON TABLE user_financial_instrument IS 'L7 · Cuentas y tarjetas del usuario vinculadas a una institución financiera. Es el origen o destino de los movimientos financieros.';
+COMMENT ON COLUMN user_financial_instrument.instrument_type IS 'Tipo de instrumento: checking_account | credit_card | debit_card | cash | credit_line | investment | loan | other.';
+COMMENT ON COLUMN user_financial_instrument.monthly_cost IS 'Costo mensual del instrumento (ej: mantención de tarjeta). NULL si no tiene costo.';
+
+COMMENT ON TABLE cashflow_node IS 'L7 · Nodo semántico de origen o destino del dinero. Permite modelar transferencias entre cuentas propias, pagos a terceros, ingresos, etc.';
+COMMENT ON COLUMN cashflow_node.node_type IS 'Rol del nodo: origin | destination | instrument | third_party | pocket.';
+COMMENT ON COLUMN cashflow_node.is_liquidity_source IS 'true = este nodo es una fuente de liquidez (ej: cuenta corriente). Usado por el motor de deudas.';
+COMMENT ON COLUMN cashflow_node.is_internal_node IS 'true = nodo interno del sistema (no creado por el usuario). false = nodo personalizado del usuario.';
+COMMENT ON COLUMN cashflow_node.owner_user_id IS 'NULL = nodo del sistema compartido. UUID = nodo personalizado de ese usuario.';
+
+COMMENT ON TABLE category IS 'L7 · Categorías de movimientos con jerarquía recursiva. Reemplaza las tablas separadas categories + subcategories. parent_category_id NULL = categoría raíz.';
+COMMENT ON COLUMN category.parent_category_id IS 'Referencia al padre. NULL = categoría de primer nivel (raíz). La jerarquía soporta N niveles.';
+COMMENT ON COLUMN category.is_leaf IS 'true = categoría hoja (la más específica, asignable a movimientos). false = categoría intermedia o raíz.';
+COMMENT ON COLUMN category.governance_scope IS 'Quién controla la categoría: system (Walvy), user (usuario la creó), suggested (IA la propuso), approved (el usuario aprobó una sugerencia).';
+COMMENT ON COLUMN category.owner_user_id IS 'NULL = categoría del sistema, visible para todos. UUID = categoría personalizada, visible solo para ese usuario.';
+COMMENT ON COLUMN category.replaced_by_category_id IS 'Si esta categoría fue deprecada, apunta a la que la reemplaza. Permite migraciones sin romper histórico.';
+
+COMMENT ON TABLE ant_expense_rules IS 'L7 · Reglas de detección de gastos hormiga configuradas por usuario. Un movimiento es "hormiga" si su monto es ≤ max_amount y pertenece a la categoría indicada (o cualquiera si category_id es NULL).';
+COMMENT ON COLUMN ant_expense_rules.max_amount IS 'Monto máximo para considerar un gasto como hormiga. NULL = usa el default de app_config[ant_expense.default_max_clp].';
+
+-- ─── LAYER 8 — PIPELINE DE INGESTA ──────────────────────────────────────────
+
+COMMENT ON TABLE file_upload IS 'L8 · Registro de archivos subidos por el usuario (cartolas PDF, CSV, etc.). Ciclo de vida: uploaded → processing → processed | failed. El constraint chk_file_upload_counts garantiza que total = success + failed.';
+COMMENT ON COLUMN file_upload.source_type IS 'Origen de la carga: document (archivo PDF/CSV), manual (ingreso manual), integration (API externa).';
+COMMENT ON COLUMN file_upload.provider IS 'Proveedor específico. Ej: bank_santander_cl, csv_generic, fintoc. Controla el parser a usar.';
+COMMENT ON COLUMN file_upload.records_total IS 'Total de registros encontrados en el archivo. NULL hasta que el procesamiento termine.';
+COMMENT ON COLUMN file_upload.records_success IS 'Registros importados exitosamente. Junto con records_failed siempre suma records_total.';
+COMMENT ON COLUMN file_upload.correlation_id IS 'ID de correlación para trazabilidad en logs y en colas de procesamiento asincrónico.';
+
+COMMENT ON TABLE import_line_items IS 'L8 · Líneas individuales de un archivo antes de convertirse en movimientos financieros. El usuario las revisa una a una (pending → accepted | rejected | edited) antes de confirmar.';
+COMMENT ON COLUMN import_line_items.raw_row IS 'Fila original del archivo tal como llegó (JSONB). No se modifica.';
+COMMENT ON COLUMN import_line_items.normalized IS 'Fila transformada al modelo interno por el parser. El usuario puede editarla antes de aceptar.';
+COMMENT ON COLUMN import_line_items.user_review_status IS 'Estado de revisión por el usuario: pending | accepted | rejected | edited.';
+
+COMMENT ON TABLE movement_classification_suggestions IS 'L8 · Sugerencias automáticas de clasificación generadas por la IA o reglas. El usuario siempre debe confirmar; nunca se aplican solas.';
+COMMENT ON COLUMN movement_classification_suggestions.suggested_target IS 'Qué tipo de movimiento sugiere la IA: debt_plan | bills_payable | transaction.';
+COMMENT ON COLUMN movement_classification_suggestions.confidence IS 'Nivel de confianza de la sugerencia, entre 0.000 y 1.000.';
+COMMENT ON COLUMN movement_classification_suggestions.rule_matched IS 'Regla o modelo que generó la sugerencia. Para debugging y mejora del motor.';
+COMMENT ON COLUMN movement_classification_suggestions.user_decision IS 'Decisión del usuario: accepted | ignored | corrected. NULL = pendiente.';
+
+-- ─── LAYER 9 — MOVIMIENTOS FINANCIEROS ──────────────────────────────────────
+
+COMMENT ON TABLE financial_movement IS 'L9 · Fuente de verdad transaccional. Cada movimiento de dinero del usuario vive aquí. Soft-delete (deleted_at). source_fingerprint con índice UNIQUE evita doble importación de la misma transacción.';
+COMMENT ON COLUMN financial_movement.operation_date IS 'Fecha en que ocurrió el movimiento según el banco o el usuario.';
+COMMENT ON COLUMN financial_movement.posted_at IS 'Fecha/hora de acreditación. NULL si solo se conoce la fecha de operación.';
+COMMENT ON COLUMN financial_movement.raw_description IS 'Glosa original sin modificar. Siempre presente.';
+COMMENT ON COLUMN financial_movement.bank_description IS 'Glosa del banco (puede diferir de raw_description en importaciones). NULL si no aplica.';
+COMMENT ON COLUMN financial_movement.amount_in IS 'Monto de ingreso. Siempre ≥ 0. Exactamente uno de amount_in o amount_out es positivo (enforced por chk_fin_mov_one_side_positive).';
+COMMENT ON COLUMN financial_movement.amount_out IS 'Monto de egreso. Siempre ≥ 0. Exactamente uno de amount_in o amount_out es positivo.';
+COMMENT ON COLUMN financial_movement.category_id IS 'Categoría padre asignada. NULL = sin categorizar (aparece en movement_review_queue).';
+COMMENT ON COLUMN financial_movement.category_leaf_id IS 'Subcategoría (hoja) asignada. Puede diferir del padre si la jerarquía tiene más de dos niveles.';
+COMMENT ON COLUMN financial_movement.classification_method IS 'Cómo se clasificó: auto (IA), manual (usuario), assisted (IA + confirmación), inherited (copiado de otro movimiento similar).';
+COMMENT ON COLUMN financial_movement.classification_confidence IS 'Confianza de la clasificación automática (0-100). NULL si fue manual.';
+COMMENT ON COLUMN financial_movement.is_ant_expense IS 'true = gasto hormiga según las reglas de ant_expense_rules del usuario.';
+COMMENT ON COLUMN financial_movement.source_fingerprint IS 'Hash que identifica de forma única la transacción en la fuente original. Índice UNIQUE parcial evita reimportaciones. NULL para movimientos manuales.';
+COMMENT ON COLUMN financial_movement.potential_duplicate_flag IS 'true = el sistema detectó que puede ser un duplicado. Requiere revisión del usuario.';
+COMMENT ON COLUMN financial_movement.deleted_at IS 'Soft delete. NULL = movimiento activo. Los índices de performance filtran WHERE deleted_at IS NULL.';
+
+COMMENT ON TABLE movement_review_queue IS 'L9 · Cola de movimientos que requieren atención del usuario (sin categorizar, posible duplicado, conflicto de instrumento, etc.). priority_level 1 = más urgente.';
+COMMENT ON COLUMN movement_review_queue.review_reason IS 'Razón de la revisión: uncategorized | possible_duplicate | instrument_conflict | loan_ambiguity | ant_expense_check | other.';
+COMMENT ON COLUMN movement_review_queue.priority_level IS 'Prioridad de atención: 1 = más urgente, 5 = menos urgente. El índice ordena la cola por prioridad.';
+
+COMMENT ON TABLE movement_classification_history IS 'L9 · Log inmutable de reclasificaciones de movimientos. Sirve para auditoría y para entrenar/mejorar el motor de clasificación automática.';
+COMMENT ON COLUMN movement_classification_history.old_category_id IS 'Categoría anterior al cambio. NULL si el movimiento no tenía categoría.';
+COMMENT ON COLUMN movement_classification_history.new_category_id IS 'Categoría asignada en este cambio.';
+COMMENT ON COLUMN movement_classification_history.changed_by IS 'UUID del usuario o admin que realizó la reclasificación. NULL = cambio automático del sistema.';
+
+-- ─── LAYER 10 — PRESUPUESTO ──────────────────────────────────────────────────
+
+COMMENT ON TABLE budget_plan IS 'L10 · Plan de presupuesto mensual. Un plan por usuario por mes (UNIQUE user_id + period_month). El histórico se preserva indefinidamente.';
+COMMENT ON COLUMN budget_plan.period_month IS 'Primer día del mes al que aplica el presupuesto. Ej: 2026-05-01. Usar DATE evita ambigüedades de zona horaria.';
+
+COMMENT ON TABLE budget_plan_item IS 'L10 · Ítem de presupuesto: límite de gasto por categoría dentro de un plan mensual. UNIQUE por (budget_plan_id, category_id).';
+COMMENT ON COLUMN budget_plan_item.amount_limit IS 'Límite de gasto para esta categoría en el mes. El sistema genera alertas cuando el usuario se acerca o supera este valor.';
+COMMENT ON COLUMN budget_plan_item.planned_min IS 'Gasto mínimo esperado en la categoría (rango inferior del plan).';
+COMMENT ON COLUMN budget_plan_item.planned_max IS 'Gasto máximo esperado en la categoría (rango superior del plan).';
+COMMENT ON COLUMN budget_plan_item.suggested_by_app IS 'true = este ítem fue sugerido por la app basándose en el historial de gastos. false = el usuario lo creó manualmente.';
+
+-- ─── LAYER 11 — MOTOR DE DEUDAS (BOLA DE NIEVE) ─────────────────────────────
+
+COMMENT ON TABLE debt IS 'L11 · Deuda del usuario. Motor bola de nieve: snowball_priority define el orden de pago. released_cashflow_amount es el flujo libre que se recupera al cerrar esta deuda. Soft-delete.';
+COMMENT ON COLUMN debt.snowball_priority IS 'Orden en la estrategia bola de nieve (1 = pagar primero). Calculado por el motor basándose en saldo e interés.';
+COMMENT ON COLUMN debt.released_cashflow_amount IS 'Flujo mensual que se libera al saldar esta deuda (ej: cuota mensual que deja de pagarse). Alimenta la simulación.';
+COMMENT ON COLUMN debt.estimated_payoff_date IS 'Fecha estimada de liquidación total basada en pagos actuales. Recalculado por el motor.';
+COMMENT ON COLUMN debt.due_day IS 'Día del mes del vencimiento (1-31). Usado para generar user_payment automáticamente.';
+COMMENT ON COLUMN debt.metadata IS 'JSONB libre para datos adicionales específicos del tipo de deuda. No normalizado intencionalmente para MVP.';
+
+COMMENT ON TABLE debt_schedules IS 'L11 · Cronograma de cuotas proyectadas para una deuda. Generado por el motor al crear o actualizar la deuda.';
+COMMENT ON COLUMN debt_schedules.installment_no IS 'Número de cuota (1, 2, 3...) dentro del cronograma de la deuda.';
+COMMENT ON COLUMN debt_schedules.planned_principal IS 'Porción de capital de la cuota según el cronograma.';
+COMMENT ON COLUMN debt_schedules.planned_interest IS 'Porción de interés de la cuota según el cronograma.';
+
+COMMENT ON TABLE debt_payments IS 'L11 · Log inmutable de abonos realizados a una deuda. Cada abono puede vincularse a un financial_movement para conciliación. Nunca se actualiza ni elimina.';
+COMMENT ON COLUMN debt_payments.movement_id IS 'FK opcional a financial_movement. Permite conciliar el abono con la transacción bancaria real.';
+
+COMMENT ON TABLE debt_attachments IS 'L11 · Documentos adjuntos a una deuda (contratos, estados de cuenta, etc.). parsed_summary guarda el resultado del parsing automático por IA.';
+COMMENT ON COLUMN debt_attachments.parsed_summary IS 'Resumen extraído automáticamente del documento (JSONB). Ej: saldo, tasa, cuotas. NULL si no se procesó.';
+
+COMMENT ON TABLE debt_payoff_simulation IS 'L11 · Simulación de estrategia de pago bola de nieve. El usuario puede tener múltiples simulaciones (draft, active, archived). extra_monthly_payment es el abono extra mensual sobre el mínimo.';
+COMMENT ON COLUMN debt_payoff_simulation.extra_monthly_payment IS 'Abono mensual adicional sobre el pago mínimo de cada deuda. Es el motor de la simulación bola de nieve.';
+COMMENT ON COLUMN debt_payoff_simulation.initial_lump_sum IS 'Pago único inicial para reducir saldo antes de aplicar la estrategia mensual.';
+COMMENT ON COLUMN debt_payoff_simulation.simulation_status IS 'Estado de la simulación: draft (en construcción) | active (la que el usuario usa) | archived (histórico).';
+
+COMMENT ON TABLE debt_payoff_schedule IS 'L11 · Detalle de la simulación por deuda: orden de pago, meses estimados para cerrarla y flujo liberado al hacerlo.';
+COMMENT ON COLUMN debt_payoff_schedule.sequence_order IS 'Orden en que se ataca esta deuda dentro de la simulación (1 = primera en pagarse).';
+COMMENT ON COLUMN debt_payoff_schedule.released_cashflow_after_close IS 'Flujo mensual liberado cuando esta deuda se liquida. Se reinvierte en la siguiente según la estrategia bola de nieve.';
+
+-- ─── LAYER 12 — AGENDA DE PAGOS ─────────────────────────────────────────────
+
+COMMENT ON TABLE user_payment IS 'L12 · Pago agendado del usuario (vencimiento de deuda, servicio, etc.). traffic_light_state indica proximidad del vencimiento. Puede generarse automáticamente desde debt (source=system).';
+COMMENT ON COLUMN user_payment.traffic_light_state IS 'Semáforo de vencimiento: green (> 7 días), yellow (3-7 días), red (< 3 días o vencido). Recalculado por job periódico.';
+COMMENT ON COLUMN user_payment.source IS 'Origen del pago: user (el usuario lo creó manualmente) | system (generado automáticamente desde debt).';
+COMMENT ON COLUMN user_payment.movement_id IS 'FK a financial_movement. Se llena cuando el usuario marca el pago como realizado y lo concilia con una transacción.';
+COMMENT ON COLUMN user_payment.is_recurring IS 'true = pago recurrente. recurrence_interval_days define la frecuencia de repetición.';
+
+COMMENT ON TABLE recurring_payment_suggestions IS 'L12 · Sugerencias de pagos recurrentes detectados por patrones en los movimientos del usuario. El usuario decide si los agrega a su agenda.';
+COMMENT ON COLUMN recurring_payment_suggestions.suggested_payload IS 'Datos del pago sugerido (JSONB): título, monto estimado, día sugerido, etc. El usuario puede editarlo antes de aceptar.';
+COMMENT ON COLUMN recurring_payment_suggestions.status IS 'Estado de la sugerencia: pending_user_confirm | accepted | dismissed.';
+
+-- ─── LAYER 13 — MONETIZACIÓN ─────────────────────────────────────────────────
+
+COMMENT ON TABLE plan IS 'L13 · Planes de suscripción disponibles. Ej: free, pro_monthly, pro_annual. IMPLEMENTADO en v1.';
+COMMENT ON COLUMN plan.billing_period IS 'Período de cobro: monthly | annual. NULL para el plan free.';
+
+COMMENT ON TABLE plan_price IS 'L13 · Precios por plan, país y moneda. Bitemporal (valid_from / valid_to). El precio cobrado se congela en subscription.billed_amount al suscribirse. IMPLEMENTADO en v1.';
+COMMENT ON COLUMN plan_price.valid_from IS 'Fecha desde la que rige este precio.';
+COMMENT ON COLUMN plan_price.valid_to IS 'NULL = precio vigente. Fecha de fin si fue reemplazado por un nuevo precio. El índice parcial uq_plan_price_active garantiza un único precio activo por plan+país.';
+
+COMMENT ON TABLE payment_method IS 'L13 · Métodos de pago tokenizados del usuario o empresa. Sin datos PCI: solo tokens del gateway (Stripe, MercadoPago, Flow). SIN INICIAR en v1.';
+COMMENT ON COLUMN payment_method.owner_type IS 'Quién es el dueño del método: USER | COMPANY.';
+COMMENT ON COLUMN payment_method.provider_payment_method_ref IS 'Token del método de pago en el gateway. Es la referencia que se usa para cobrar.';
+COMMENT ON COLUMN payment_method.is_default IS 'true = método de pago por defecto para cobros automáticos.';
+
+COMMENT ON TABLE subscription IS 'L13 · Suscripción del usuario a un plan. Soporta B2B (company_id) y B2C. billed_amount es snapshot inmutable del precio cobrado. gift_token es UNIQUE cuando no es NULL. IMPLEMENTADO en v1.';
+COMMENT ON COLUMN subscription.origin IS 'Canal de la suscripción: B2B (beneficio corporativo) | B2C (compra directa del usuario).';
+COMMENT ON COLUMN subscription.billed_amount IS 'Monto cobrado al momento de suscribirse. Inmutable. No cambia aunque el precio del plan cambie después.';
+COMMENT ON COLUMN subscription.is_gift IS 'true = suscripción regalo. Activa los campos gift_*.';
+COMMENT ON COLUMN subscription.gift_token IS 'Token único de canje del regalo. UNIQUE WHERE IS NOT NULL. Se invalida al canjearse (gift_redeemed_at).';
+
+COMMENT ON TABLE payment_order IS 'L13 · Orden de pago al gateway. commerce_order es UNIQUE para garantizar idempotencia ante webhooks duplicados. IMPLEMENTADO en v1.';
+COMMENT ON COLUMN payment_order.commerce_order IS 'ID único de la orden en nuestro sistema. Enviado al gateway. UNIQUE garantiza idempotencia si el webhook llega duplicado.';
+COMMENT ON COLUMN payment_order.provider_token IS 'Token de pago generado por el gateway (ej: Flow token). Usado para redirigir al usuario a la pantalla de pago.';
+
+-- ─── LAYER 14 — GAMIFICACIÓN ─────────────────────────────────────────────────
+
+COMMENT ON TABLE gamification_rules IS 'L14 · Reglas de puntos por tipo de evento. Las reglas son datos (no código): agregar una regla = INSERT. Modificable desde backoffice sin deploy.';
+COMMENT ON COLUMN gamification_rules.event_type IS 'Tipo de evento que otorga puntos. Ej: debt_payment_registered, budget_respected, all_movements_categorized.';
+COMMENT ON COLUMN gamification_rules.points IS 'Puntos otorgados cuando ocurre este evento.';
+
+COMMENT ON TABLE gamification_events IS 'L14 · Log inmutable de puntos otorgados a usuarios. Cada evento genera una fila. Nunca se modifica.';
+COMMENT ON COLUMN gamification_events.reference_type IS 'Tipo de entidad que disparó el evento. Ej: debt_payment, budget_plan. Polimórfico.';
+COMMENT ON COLUMN gamification_events.reference_id IS 'UUID de la entidad que disparó el evento.';
+
+COMMENT ON TABLE user_gamification_stats IS 'L14 · Caché de estadísticas de gamificación por usuario. Relación 1:1. Se actualiza de forma incremental (no recalcula desde 0). Permite mostrar el nivel y puntos sin agregar todos los eventos.';
+COMMENT ON COLUMN user_gamification_stats.total_points IS 'Total acumulado de puntos del usuario. Actualizado incrementalmente con cada gamification_event.';
+COMMENT ON COLUMN user_gamification_stats.last_computed_at IS 'Última vez que se actualizó este caché.';
+
+COMMENT ON TABLE user_score_history IS 'L14 · Historial de puntos del usuario por período. Permite mostrar gráficos de evolución de puntos en el tiempo.';
+
+-- ─── LAYER 15 — MENSAJERÍA Y RECOMENDACIONES ─────────────────────────────────
+
+COMMENT ON TABLE message_rule IS 'L15 · Reglas de mensajes y recomendaciones. Las reglas son filas en la base de datos, no código: agregar una regla = INSERT. 7 seeds incluidos. El motor evalúa qué mensajes mostrar al usuario según su contexto financiero.';
+COMMENT ON COLUMN message_rule.code IS 'Identificador único de la regla. Ej: leaks_detected, pay_next, debt_idle, uncategorized_movements.';
+COMMENT ON COLUMN message_rule.context IS 'Pantalla/sección donde aplica el mensaje: home | budget | debt | payments | profile | global.';
+COMMENT ON COLUMN message_rule.deep_link IS 'Ruta de acción directa en la app. El usuario hace clic y va directo al módulo relevante.';
+COMMENT ON COLUMN message_rule.priority IS 'Prioridad de aparición: 1 = mayor prioridad, 5 = menor. El motor prioriza qué mensajes mostrar si hay varios.';
+
+COMMENT ON TABLE message_event IS 'L15 · Instancia de un mensaje para un usuario específico. Un message_rule puede generar múltiples message_event a lo largo del tiempo. suppressed_until controla frecuencia para no mostrar el mismo mensaje repetidamente.';
+COMMENT ON COLUMN message_event.context_period_month IS 'Mes al que aplica el mensaje. Ej: el mensaje de "fugas de mayo 2026". NULL para mensajes sin período específico.';
+COMMENT ON COLUMN message_event.payload IS 'Evidencia y valores que sustentan el mensaje (JSONB). Sin datos sensibles. Ej: { leaks_total: 45000, top_category: "Delivery" }.';
+COMMENT ON COLUMN message_event.suppressed_until IS 'No mostrar este mensaje hasta esta fecha. Evita que el mismo mensaje aparezca cada vez que el usuario abre la app.';
+
+COMMENT ON TABLE user_message_interaction IS 'L15 · Registro de cómo el usuario interactuó con un mensaje. Afina el motor para personalizar qué mensajes mostrar. Inmutable.';
+COMMENT ON COLUMN user_message_interaction.action IS 'Acción tomada por el usuario: opened | dismissed | snoozed | completed.';
+
+-- ─── LAYER 16 — ASISTENTE IA ─────────────────────────────────────────────────
+
+COMMENT ON TABLE ai_conversations IS 'L16 · Sesiones de conversación con el asistente IA. Una sesión agrupa todos los mensajes de un hilo.';
+COMMENT ON TABLE ai_messages IS 'L16 · Mensajes individuales de una conversación con el asistente. role indica si es del usuario, del asistente o de sistema. token_usage permite monitorear costos.';
+COMMENT ON COLUMN ai_messages.role IS 'Autor del mensaje: user | assistant | system.';
+COMMENT ON COLUMN ai_messages.token_usage IS 'Tokens consumidos por este mensaje (JSONB). Ej: { input: 1200, output: 350, cache_read: 800 }. Para seguimiento de costos.';
+
+COMMENT ON TABLE ai_tool_invocations IS 'L16 · Registro de tool calls (herramientas) invocadas por el asistente durante una conversación. Permite debugging y auditoría de qué datos consultó la IA.';
+COMMENT ON COLUMN ai_tool_invocations.tool_name IS 'Nombre de la herramienta invocada. Ej: get_monthly_summary, list_upcoming_payments, get_debt_status.';
+COMMENT ON COLUMN ai_tool_invocations.args IS 'Argumentos enviados a la herramienta (JSONB).';
+COMMENT ON COLUMN ai_tool_invocations.result IS 'Resultado devuelto por la herramienta (JSONB).';
+
+COMMENT ON TABLE ai_context_snapshots IS 'L16 · Snapshot del contexto financiero del usuario al inicio de cada conversación. Evita queries en tiempo real durante la conversación y garantiza consistencia.';
+COMMENT ON COLUMN ai_context_snapshots.financial_summary IS 'Resumen financiero del usuario en el momento de iniciar la conversación (JSONB). Incluye saldos, deudas, presupuesto activo, metas, etc.';
+
+COMMENT ON TABLE faq_articles IS 'L16 · Base de conocimiento de la app. El asistente IA la consulta para responder preguntas frecuentes. Soporte de full-text search en español.';
+COMMENT ON COLUMN faq_articles.slug IS 'Identificador URL-friendly del artículo. Ej: como-importar-cartola.';
+COMMENT ON COLUMN faq_articles.tags IS 'Array de etiquetas para filtrado. Ej: {importar, cartola, pdf}.';
+
+-- ─── LAYER 17 — ADMINISTRACIÓN Y AUDITORÍA ──────────────────────────────────
+
+COMMENT ON TABLE admin_users IS 'L17 · Usuarios del backoffice de Walvy. Separado de app_user por seguridad: credenciales y permisos completamente independientes.';
+COMMENT ON COLUMN admin_users.role IS 'Rol en el backoffice: super_admin (acceso total) | operator (acceso restringido a operaciones del día a día).';
+
+COMMENT ON TABLE admin_audit_log IS 'L17 · Log de acciones de administradores en el backoffice. Almacena before_data y after_data en JSONB para trazabilidad completa de cambios.';
+COMMENT ON COLUMN admin_audit_log.before_data IS 'Estado del registro antes del cambio (JSONB). NULL para inserciones.';
+COMMENT ON COLUMN admin_audit_log.after_data IS 'Estado del registro después del cambio (JSONB). NULL para eliminaciones.';
+
+COMMENT ON TABLE audit_log IS 'L17 · Log de acciones de usuarios finales (no administradores). Para compliance y debugging de comportamientos inesperados.';
+COMMENT ON COLUMN audit_log.diff IS 'Cambios realizados en formato JSONB. Ej: { old: { status: "active" }, new: { status: "deleted" } }.';
+
+COMMENT ON TABLE report_snapshots IS 'L17 · Reportes pre-computados para el backoffice (MRR, churn, usuarios activos, etc.). Se generan por job periódico o bajo demanda. Evitan queries pesados en tiempo real.';
+COMMENT ON COLUMN report_snapshots.payload IS 'Datos del reporte (JSONB). El schema interno varía según report_type.';
+
+-- ─── LAYER 18 — READ MODELS CQRS ────────────────────────────────────────────
+
+COMMENT ON TABLE user_month_diagnosis_summary IS 'L18 CQRS · Diagnóstico financiero mensual pre-computado por job batch. Alimenta la pantalla Home: semáforo de salud, capacidad de ahorro, calidad del dato, próxima acción sugerida. No se escribe directamente: solo el job la actualiza.';
+COMMENT ON COLUMN user_month_diagnosis_summary.traffic_light_status IS 'Semáforo de salud financiera del mes: green | yellow | red. El criterio está en app_config y en el campo rule_version.';
+COMMENT ON COLUMN user_month_diagnosis_summary.traffic_light_reason_codes IS 'Array de códigos que explican el semáforo. Ej: {high_debt_ratio, uncategorized_movements}.';
+COMMENT ON COLUMN user_month_diagnosis_summary.visible_savings_capacity_amount IS 'Capacidad de ahorro estimada en el mes, en la moneda del usuario.';
+COMMENT ON COLUMN user_month_diagnosis_summary.source_watermark_at IS 'Timestamp del movimiento más reciente considerado en este cálculo. Permite saber si el read model está desactualizado.';
+COMMENT ON COLUMN user_month_diagnosis_summary.rule_version IS 'Versión de las reglas de diagnóstico usadas. Permite invalidar read models cuando las reglas cambian.';
+COMMENT ON COLUMN user_month_diagnosis_summary.next_action_type IS 'Tipo de acción sugerida al usuario: pay | debt | budget | categorize | import.';
+COMMENT ON COLUMN user_month_diagnosis_summary.next_action_ref_id IS 'UUID de la entidad relacionada con la próxima acción (ej: el UUID del pago más urgente).';
+
+COMMENT ON TABLE user_month_debt_priority_summary IS 'L18 CQRS · Ranking de deudas por prioridad bola de nieve, pre-computado por job batch. Alimenta la pantalla de Deudas. PK compuesta (user_id, month, debt_id).';
+COMMENT ON COLUMN user_month_debt_priority_summary.priority_rank IS 'Posición de esta deuda en la estrategia bola de nieve (1 = pagar primero).';
+COMMENT ON COLUMN user_month_debt_priority_summary.priority_score IS 'Puntaje numérico que generó el ranking. Mayor puntaje = mayor prioridad.';
+COMMENT ON COLUMN user_month_debt_priority_summary.released_cashflow_amount IS 'Flujo mensual que se libera al cerrar esta deuda. Copia de debt.released_cashflow_amount al momento del cálculo.';
+
+COMMENT ON TABLE user_upcoming_payments_summary IS 'L18 CQRS · Próximos pagos del usuario en una ventana de tiempo, pre-computados por job batch. Alimenta Home y la pantalla de Pagos.';
+COMMENT ON COLUMN user_upcoming_payments_summary.window_start IS 'Inicio de la ventana temporal del resumen.';
+COMMENT ON COLUMN user_upcoming_payments_summary.window_end IS 'Fin de la ventana temporal del resumen.';
+
+COMMENT ON TABLE user_month_leaks_summary IS 'L18 CQRS · Resumen de fugas del mes (gastos hormiga y patrones de fuga), pre-computado por job batch. Alimenta la pantalla Home con el widget de fugas.';
+COMMENT ON COLUMN user_month_leaks_summary.leaks_total_amount IS 'Monto total de fugas detectadas en el mes (gastos hormiga + patrones recurrentes).';
+COMMENT ON COLUMN user_month_leaks_summary.ant_expense_total IS 'Subtotal de gastos hormiga dentro del total de fugas.';
+COMMENT ON COLUMN user_month_leaks_summary.top_categories IS 'JSONB con las categorías donde se concentran más fugas. Ej: [{ category: "Delivery", amount: 32000 }].';
+
+-- ============================================================================
+
 COMMIT;
 
 -- ============================================================================

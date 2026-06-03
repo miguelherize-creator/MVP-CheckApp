@@ -1,0 +1,294 @@
+<!DOCTYPE html><html lang="es">
+<head><meta charset="UTF-8"><title>Walvy DB — Conexiones</title>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111827;color:#e5e7eb;display:flex;height:100vh;overflow:hidden}
+#side{width:240px;background:#1f2937;display:flex;flex-direction:column;border-right:1px solid #374151;flex-shrink:0}
+#side-top{padding:14px;border-bottom:1px solid #374151}
+#side-top h1{font-size:.95rem;color:#f9fafb;margin-bottom:2px}
+.meta{font-size:.72rem;color:#9ca3af;margin-bottom:10px}
+.leg{margin-bottom:8px}
+.leg-t{font-size:.68rem;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.sw{display:flex;align-items:center;gap:6px;font-size:.75rem;color:#d1d5db;margin-bottom:4px}
+.dot{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.ctrls{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.btn{background:#374151;color:#e5e7eb;border:1px solid #4b5563;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.75rem;text-align:center}
+.btn:hover{background:#4b5563}
+#layer-list{overflow-y:auto;flex:1;padding:10px 10px 10px}
+.lt{font-size:.68rem;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.li{font-size:.75rem;color:#d1d5db;padding:5px 7px;border-radius:4px;cursor:pointer;margin-bottom:3px;border-left:3px solid transparent;display:flex;align-items:center;gap:5px;transition:background .12s}
+.li:hover{background:#374151}
+.li.active{background:#374151;color:#f9fafb}
+.ln{font-weight:700;font-family:monospace;flex-shrink:0;width:24px}
+.lc{margin-left:auto;background:#374151;padding:1px 5px;border-radius:9px;font-size:.68rem;color:#9ca3af;flex-shrink:0}
+.li.active .lc{background:#4b5563}
+#cv{flex:1;background:#111827}
+#tip{position:fixed;bottom:14px;right:14px;background:#1f2937;border:1px solid #374151;border-radius:8px;padding:10px 14px;font-size:.78rem;display:none;max-width:260px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+#tip h4{font-family:monospace;color:#60a5fa;margin-bottom:5px;font-size:.85rem}
+.tr{display:flex;gap:6px;margin-bottom:3px}
+.tk{color:#9ca3af;flex-shrink:0}
+.tv{color:#e5e7eb}
+#hint{position:fixed;bottom:14px;left:254px;font-size:.72rem;color:#6b7280}
+</style></head>
+<body>
+<div id="side">
+  <div id="side-top">
+    <h1>Walvy DB — Conexiones</h1>
+    <p class="meta">71 tablas · 116 FKs</p>
+    <div class="leg">
+      <div class="leg-t">Estado</div>
+      <div class="sw"><div class="dot" style="background:#27AE60"></div>Implementado</div>
+      <div class="sw"><div class="dot" style="background:#F0B429"></div>Schema listo · pendiente</div>
+      <div class="sw"><div class="dot" style="background:#5B9BD5"></div>Sin iniciar</div>
+    </div>
+    <div class="ctrls">
+      <button class="btn" id="bColl">⬡ Colapsar por layer</button>
+      <button class="btn" id="bExp">⬢ Expandir todo</button>
+      <button class="btn" id="bFit">⊕ Centrar vista</button>
+    </div>
+  </div>
+  <div id="layer-list">
+    <div class="lt">Layers — clic para enfocar</div>
+    <div class="li" data-g="L0" style="border-left-color:#27AE60"><span class="ln">L0</span>CATÁLOGOS ISO<span class="lc">4</span></div>
+<div class="li" data-g="L1" style="border-left-color:#27AE60"><span class="ln">L1</span>STATUS CENTRALIZADO<span class="lc">2</span></div>
+<div class="li" data-g="L2" style="border-left-color:#27AE60"><span class="ln">L2</span>RBAC<span class="lc">3</span></div>
+<div class="li" data-g="L3" style="border-left-color:#27AE60"><span class="ln">L3</span>CONFIGURACIÓN Y SALUD<span class="lc">2</span></div>
+<div class="li" data-g="L4" style="border-left-color:#27AE60"><span class="ln">L4</span>IDENTIDAD Y AUTH<span class="lc">6</span></div>
+<div class="li" data-g="L5" style="border-left-color:#5B9BD5"><span class="ln">L5</span>B2B CORPORATIVO<span class="lc">4</span></div>
+<div class="li" data-g="L6" style="border-left-color:#F0B429"><span class="ln">L6</span>PERFIL Y ALERTAS<span class="lc">4</span></div>
+<div class="li" data-g="L7" style="border-left-color:#5B9BD5"><span class="ln">L7</span>CATÁLOGOS FINANCIEROS<span class="lc">5</span></div>
+<div class="li" data-g="L8" style="border-left-color:#5B9BD5"><span class="ln">L8</span>PIPELINE DE INGESTA<span class="lc">3</span></div>
+<div class="li" data-g="L9" style="border-left-color:#5B9BD5"><span class="ln">L9</span>MOVIMIENTOS FINANCIEROS<span class="lc">3</span></div>
+<div class="li" data-g="L10" style="border-left-color:#5B9BD5"><span class="ln">L10</span>PRESUPUESTO<span class="lc">2</span></div>
+<div class="li" data-g="L11" style="border-left-color:#5B9BD5"><span class="ln">L11</span>MOTOR DE DEUDAS (BOLA DE NIEVE)<span class="lc">6</span></div>
+<div class="li" data-g="L12" style="border-left-color:#5B9BD5"><span class="ln">L12</span>AGENDA DE PAGOS<span class="lc">2</span></div>
+<div class="li" data-g="L13" style="border-left-color:#27AE60"><span class="ln">L13</span>MONETIZACIÓN<span class="lc">5</span></div>
+<div class="li" data-g="L14" style="border-left-color:#5B9BD5"><span class="ln">L14</span>GAMIFICACIÓN<span class="lc">4</span></div>
+<div class="li" data-g="L15" style="border-left-color:#5B9BD5"><span class="ln">L15</span>MENSAJERÍA Y RECOMENDACIONES<span class="lc">3</span></div>
+<div class="li" data-g="L16" style="border-left-color:#5B9BD5"><span class="ln">L16</span>ASISTENTE IA<span class="lc">5</span></div>
+<div class="li" data-g="L17" style="border-left-color:#5B9BD5"><span class="ln">L17</span>ADMINISTRACIÓN Y AUDITORÍA<span class="lc">4</span></div>
+<div class="li" data-g="L18" style="border-left-color:#5B9BD5"><span class="ln">L18</span>READ MODELS CQRS<span class="lc">4</span></div>
+
+  </div>
+</div>
+<div id="cv"></div>
+<div id="tip"><h4 id="tn"></h4><div class="tr"><span class="tk">Layer:</span><span class="tv" id="tl"></span></div><div class="tr"><span class="tk">Estado:</span><span class="tv" id="ts"></span></div><div class="tr"><span class="tk">FKs:</span><span class="tv" id="tf"></span></div></div>
+<div id="hint">💡 Doble clic en un layer para expandir · Clic en tabla para ver info</div>
+<script>
+var NODES = [{"id": "country", "label": "country", "lyr": "L0", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 0}, {"id": "currency", "label": "currency", "lyr": "L0", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 0}, {"id": "country_currency", "label": "country_currency", "lyr": "L0", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 0}, {"id": "document_type", "label": "document_type", "lyr": "L0", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 0}, {"id": "status_domain", "label": "status_domain", "lyr": "L1", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 1}, {"id": "status", "label": "status", "lyr": "L1", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 1}, {"id": "role", "label": "role", "lyr": "L2", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 2}, {"id": "permission", "label": "permission", "lyr": "L2", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 2}, {"id": "role_permission", "label": "role_permission", "lyr": "L2", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 2}, {"id": "financial_health_level", "label": "financial_health_level", "lyr": "L3", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 3}, {"id": "app_config", "label": "app_config", "lyr": "L3", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 3}, {"id": "app_user", "label": "app_user", "lyr": "L4", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 4}, {"id": "refresh_tokens", "label": "refresh_tokens", "lyr": "L4", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 4}, {"id": "password_reset_tokens", "label": "password_reset_tokens", "lyr": "L4", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 4}, {"id": "email_verification_tokens", "label": "email_verification_tokens", "lyr": "L4", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 4}, {"id": "biometric_preferences", "label": "biometric_preferences", "lyr": "L4", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 4}, {"id": "user_onboarding_state", "label": "user_onboarding_state", "lyr": "L4", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 4}, {"id": "company", "label": "company", "lyr": "L5", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 5}, {"id": "company_benefit_contract", "label": "company_benefit_contract", "lyr": "L5", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 5}, {"id": "company_eligible_employee", "label": "company_eligible_employee", "lyr": "L5", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 5}, {"id": "benefit_invitation", "label": "benefit_invitation", "lyr": "L5", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 5}, {"id": "user_financial_profile", "label": "user_financial_profile", "lyr": "L6", "color": {"background": "#F0B429", "border": "#c48d0a", "highlight": {"background": "#F0B429", "border": "#fff"}}, "font": {"color": "#1a1a1a", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 6}, {"id": "user_goals", "label": "user_goals", "lyr": "L6", "color": {"background": "#F0B429", "border": "#c48d0a", "highlight": {"background": "#F0B429", "border": "#fff"}}, "font": {"color": "#1a1a1a", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 6}, {"id": "alert_preferences", "label": "alert_preferences", "lyr": "L6", "color": {"background": "#F0B429", "border": "#c48d0a", "highlight": {"background": "#F0B429", "border": "#fff"}}, "font": {"color": "#1a1a1a", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 6}, {"id": "notification_queue", "label": "notification_queue", "lyr": "L6", "color": {"background": "#F0B429", "border": "#c48d0a", "highlight": {"background": "#F0B429", "border": "#fff"}}, "font": {"color": "#1a1a1a", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 6}, {"id": "financial_institution", "label": "financial_institution", "lyr": "L7", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 7}, {"id": "user_financial_instrument", "label": "user_financial_instrument", "lyr": "L7", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 7}, {"id": "cashflow_node", "label": "cashflow_node", "lyr": "L7", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 7}, {"id": "category", "label": "category", "lyr": "L7", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 7}, {"id": "ant_expense_rules", "label": "ant_expense_rules", "lyr": "L7", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 7}, {"id": "file_upload", "label": "file_upload", "lyr": "L8", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 8}, {"id": "import_line_items", "label": "import_line_items", "lyr": "L8", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 8}, {"id": "movement_classification_suggestions", "label": "movement_classification_suggestions", "lyr": "L8", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 8}, {"id": "financial_movement", "label": "financial_movement", "lyr": "L9", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 9}, {"id": "movement_review_queue", "label": "movement_review_queue", "lyr": "L9", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 9}, {"id": "movement_classification_history", "label": "movement_classification_history", "lyr": "L9", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 9}, {"id": "budget_plan", "label": "budget_plan", "lyr": "L10", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 10}, {"id": "budget_plan_item", "label": "budget_plan_item", "lyr": "L10", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 10}, {"id": "debt", "label": "debt", "lyr": "L11", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 11}, {"id": "debt_schedules", "label": "debt_schedules", "lyr": "L11", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 11}, {"id": "debt_payments", "label": "debt_payments", "lyr": "L11", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 11}, {"id": "debt_attachments", "label": "debt_attachments", "lyr": "L11", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 11}, {"id": "debt_payoff_simulation", "label": "debt_payoff_simulation", "lyr": "L11", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 11}, {"id": "debt_payoff_schedule", "label": "debt_payoff_schedule", "lyr": "L11", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 11}, {"id": "user_payment", "label": "user_payment", "lyr": "L12", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 12}, {"id": "recurring_payment_suggestions", "label": "recurring_payment_suggestions", "lyr": "L12", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 12}, {"id": "plan", "label": "plan", "lyr": "L13", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 13}, {"id": "plan_price", "label": "plan_price", "lyr": "L13", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 13}, {"id": "payment_method", "label": "payment_method", "lyr": "L13", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 13}, {"id": "subscription", "label": "subscription", "lyr": "L13", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 13}, {"id": "payment_order", "label": "payment_order", "lyr": "L13", "color": {"background": "#27AE60", "border": "#1e8449", "highlight": {"background": "#27AE60", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 13}, {"id": "gamification_rules", "label": "gamification_rules", "lyr": "L14", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 14}, {"id": "gamification_events", "label": "gamification_events", "lyr": "L14", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 14}, {"id": "user_gamification_stats", "label": "user_gamification_stats", "lyr": "L14", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 14}, {"id": "user_score_history", "label": "user_score_history", "lyr": "L14", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 14}, {"id": "message_rule", "label": "message_rule", "lyr": "L15", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 15}, {"id": "message_event", "label": "message_event", "lyr": "L15", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 15}, {"id": "user_message_interaction", "label": "user_message_interaction", "lyr": "L15", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 15}, {"id": "ai_conversations", "label": "ai_conversations", "lyr": "L16", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 16}, {"id": "ai_messages", "label": "ai_messages", "lyr": "L16", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 16}, {"id": "ai_tool_invocations", "label": "ai_tool_invocations", "lyr": "L16", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 16}, {"id": "ai_context_snapshots", "label": "ai_context_snapshots", "lyr": "L16", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 16}, {"id": "faq_articles", "label": "faq_articles", "lyr": "L16", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 16}, {"id": "admin_users", "label": "admin_users", "lyr": "L17", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 17}, {"id": "admin_audit_log", "label": "admin_audit_log", "lyr": "L17", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 17}, {"id": "audit_log", "label": "audit_log", "lyr": "L17", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 17}, {"id": "report_snapshots", "label": "report_snapshots", "lyr": "L17", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 17}, {"id": "user_month_diagnosis_summary", "label": "user_month_diagnosis_summary", "lyr": "L18", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 18}, {"id": "user_month_debt_priority_summary", "label": "user_month_debt_priority_summary", "lyr": "L18", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 18}, {"id": "user_upcoming_payments_summary", "label": "user_upcoming_payments_summary", "lyr": "L18", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 18}, {"id": "user_month_leaks_summary", "label": "user_month_leaks_summary", "lyr": "L18", "color": {"background": "#5B9BD5", "border": "#3a7cc1", "highlight": {"background": "#5B9BD5", "border": "#fff"}}, "font": {"color": "#fff", "size": 12, "face": "monospace"}, "shape": "box", "margin": 5, "layer": 18}];
+var EDGES = [{"from": "country_currency", "to": "country", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "country_currency", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "document_type", "to": "country", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "status", "to": "status_domain", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "role_permission", "to": "role", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "role_permission", "to": "permission", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "app_config", "to": "admin_users", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "app_user", "to": "document_type", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "app_user", "to": "country", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "app_user", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "app_user", "to": "role", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "app_user", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "app_user", "to": "financial_health_level", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "refresh_tokens", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "password_reset_tokens", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "email_verification_tokens", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "biometric_preferences", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_onboarding_state", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "company", "to": "country", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "company", "to": "document_type", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "company_benefit_contract", "to": "company", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "company_eligible_employee", "to": "company_benefit_contract", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "company_eligible_employee", "to": "document_type", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "company_eligible_employee", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "benefit_invitation", "to": "company_eligible_employee", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_financial_profile", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_financial_profile", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_goals", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "alert_preferences", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "notification_queue", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_institution", "to": "country", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_financial_instrument", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_financial_instrument", "to": "financial_institution", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "cashflow_node", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "category", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "ant_expense_rules", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "ant_expense_rules", "to": "category", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "file_upload", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "file_upload", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "import_line_items", "to": "file_upload", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "movement_classification_suggestions", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "movement_classification_suggestions", "to": "import_line_items", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_movement", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_movement", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_movement", "to": "category", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_movement", "to": "cashflow_node", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_movement", "to": "financial_institution", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_movement", "to": "user_financial_instrument", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_movement", "to": "file_upload", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "financial_movement", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "movement_review_queue", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "movement_review_queue", "to": "financial_movement", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "movement_review_queue", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "movement_classification_history", "to": "financial_movement", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "movement_classification_history", "to": "category", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "movement_classification_history", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "budget_plan", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "budget_plan", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "budget_plan_item", "to": "budget_plan", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "budget_plan_item", "to": "category", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt", "to": "user_financial_instrument", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt_schedules", "to": "debt", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt_payments", "to": "debt", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt_payments", "to": "financial_movement", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt_attachments", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt_attachments", "to": "debt", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt_payoff_simulation", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt_payoff_schedule", "to": "debt_payoff_simulation", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "debt_payoff_schedule", "to": "debt", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_payment", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_payment", "to": "debt", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_payment", "to": "financial_movement", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_payment", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_payment", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "recurring_payment_suggestions", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "plan_price", "to": "plan", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "plan_price", "to": "country", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "plan_price", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "payment_method", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "payment_method", "to": "company", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "payment_method", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "subscription", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "subscription", "to": "company", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "subscription", "to": "plan", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "subscription", "to": "plan_price", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "subscription", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "subscription", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "payment_order", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "payment_order", "to": "subscription", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "payment_order", "to": "currency", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "gamification_rules", "to": "admin_users", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "gamification_events", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_gamification_stats", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_score_history", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "message_event", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "message_event", "to": "message_rule", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "message_event", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_message_interaction", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_message_interaction", "to": "message_event", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "ai_conversations", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "ai_messages", "to": "ai_conversations", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "ai_tool_invocations", "to": "ai_messages", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "ai_context_snapshots", "to": "ai_conversations", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "admin_audit_log", "to": "admin_users", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "audit_log", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "report_snapshots", "to": "admin_users", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_month_diagnosis_summary", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_month_debt_priority_summary", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_month_debt_priority_summary", "to": "debt", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_upcoming_payments_summary", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_upcoming_payments_summary", "to": "user_payment", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_upcoming_payments_summary", "to": "status", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}, {"from": "user_month_leaks_summary", "to": "app_user", "arrows": "to", "color": {"color": "#777", "opacity": 0.55}, "width": 1}];
+var SL = {"#27AE60":"Implementado","#F0B429":"Schema listo · pendiente","#5B9BD5":"Sin iniciar"};
+var nodes = new vis.DataSet(NODES);
+var edges = new vis.DataSet(EDGES);
+var net = new vis.Network(document.getElementById('cv'), {nodes,edges}, {
+  physics:{solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-60,centralGravity:0.005,springLength:140,springConstant:0.06,damping:0.4},stabilization:{iterations:300}},
+  interaction:{hover:true,zoomView:true,navigationButtons:false},
+  edges:{smooth:{type:'continuous'}},
+});
+
+function collapseAll(){
+  net.cluster({
+    joinCondition: n => n.lyr==='L0',
+    clusterNodeProperties: {
+      id:'cL0', label:'L0\nCATÁLOGOS ISO\n(4 tablas)',
+      color:{background:'#27AE60',border:'#1e8449',highlight:{background:'#27AE60',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L1',
+    clusterNodeProperties: {
+      id:'cL1', label:'L1\nSTATUS CENTRALIZADO\n(2 tablas)',
+      color:{background:'#27AE60',border:'#1e8449',highlight:{background:'#27AE60',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L2',
+    clusterNodeProperties: {
+      id:'cL2', label:'L2\nRBAC\n(3 tablas)',
+      color:{background:'#27AE60',border:'#1e8449',highlight:{background:'#27AE60',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L3',
+    clusterNodeProperties: {
+      id:'cL3', label:'L3\nCONFIGURACIÓN Y SALUD\n(2 tablas)',
+      color:{background:'#27AE60',border:'#1e8449',highlight:{background:'#27AE60',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L4',
+    clusterNodeProperties: {
+      id:'cL4', label:'L4\nIDENTIDAD Y AUTH\n(6 tablas)',
+      color:{background:'#27AE60',border:'#1e8449',highlight:{background:'#27AE60',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L5',
+    clusterNodeProperties: {
+      id:'cL5', label:'L5\nB2B CORPORATIVO\n(4 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L6',
+    clusterNodeProperties: {
+      id:'cL6', label:'L6\nPERFIL Y ALERTAS\n(4 tablas)',
+      color:{background:'#F0B429',border:'#c48d0a',highlight:{background:'#F0B429',border:'#fff'}},
+      font:{color:'#1a1a1a',size:13,multi:true,bold:{color:'#1a1a1a'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L7',
+    clusterNodeProperties: {
+      id:'cL7', label:'L7\nCATÁLOGOS FINANCIEROS\n(5 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L8',
+    clusterNodeProperties: {
+      id:'cL8', label:'L8\nPIPELINE DE INGESTA\n(3 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L9',
+    clusterNodeProperties: {
+      id:'cL9', label:'L9\nMOVIMIENTOS FINANCIEROS\n(3 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L10',
+    clusterNodeProperties: {
+      id:'cL10', label:'L10\nPRESUPUESTO\n(2 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L11',
+    clusterNodeProperties: {
+      id:'cL11', label:'L11\nMOTOR DE DEUDAS (BOLA DE NIEVE\n(6 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L12',
+    clusterNodeProperties: {
+      id:'cL12', label:'L12\nAGENDA DE PAGOS\n(2 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L13',
+    clusterNodeProperties: {
+      id:'cL13', label:'L13\nMONETIZACIÓN\n(5 tablas)',
+      color:{background:'#27AE60',border:'#1e8449',highlight:{background:'#27AE60',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L14',
+    clusterNodeProperties: {
+      id:'cL14', label:'L14\nGAMIFICACIÓN\n(4 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L15',
+    clusterNodeProperties: {
+      id:'cL15', label:'L15\nMENSAJERÍA Y RECOMENDACIONES\n(3 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L16',
+    clusterNodeProperties: {
+      id:'cL16', label:'L16\nASISTENTE IA\n(5 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L17',
+    clusterNodeProperties: {
+      id:'cL17', label:'L17\nADMINISTRACIÓN Y AUDITORÍA\n(4 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+  net.cluster({
+    joinCondition: n => n.lyr==='L18',
+    clusterNodeProperties: {
+      id:'cL18', label:'L18\nREAD MODELS CQRS\n(4 tablas)',
+      color:{background:'#5B9BD5',border:'#3a7cc1',highlight:{background:'#5B9BD5',border:'#fff'}},
+      font:{color:'#fff',size:13,multi:true,bold:{color:'#fff'}},
+      shape:'box', borderWidth:2, widthConstraint:{minimum:160}, margin:12,
+    },
+  });
+}
+function expandAll(){
+  for(var i=0;i<=18;i++){try{net.openCluster('cL'+i);}catch(e){}}
+}
+document.getElementById('bColl').onclick = collapseAll;
+document.getElementById('bExp').onclick  = expandAll;
+document.getElementById('bFit').onclick  = ()=>net.fit();
+
+net.on('doubleClick', p=>{
+  if(p.nodes.length && net.isCluster(p.nodes[0])) net.openCluster(p.nodes[0]);
+});
+net.on('click', p=>{
+  var tip=document.getElementById('tip');
+  if(!p.nodes.length){tip.style.display='none';return;}
+  var n=nodes.get(p.nodes[0]); if(!n)return;
+  document.getElementById('tn').textContent=n.label||p.nodes[0];
+  document.getElementById('tl').textContent=n.lyr||'?';
+  document.getElementById('ts').textContent=SL[n.color&&n.color.background]||'?';
+  document.getElementById('tf').textContent=net.getConnectedEdges(p.nodes[0]).length+' conexión(es)';
+  tip.style.display='block';
+});
+document.querySelectorAll('.li').forEach(el=>{
+  el.addEventListener('click',function(){
+    var g=this.dataset.g;
+    document.querySelectorAll('.li').forEach(e=>e.classList.remove('active'));
+    this.classList.add('active');
+    var ids=NODES.filter(n=>n.lyr===g).map(n=>n.id);
+    net.selectNodes(ids);
+    if(ids.length) net.fit({nodes:ids,animation:{duration:600,easingFunction:'easeInOutQuad'}});
+  });
+});
+net.on('stabilized', ()=>{ collapseAll(); net.fit(); });
+</script></body></html>
