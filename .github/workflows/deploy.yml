@@ -1,0 +1,113 @@
+name: Build & Deploy to ECS
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente a desplegar"
+        required: true
+        type: choice
+        options:
+          - dev
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  resolve-env:
+    name: Resolve environment
+    runs-on: ubuntu-22.04
+    outputs:
+      env_name: ${{ steps.map.outputs.env_name }}
+      gh_environment: ${{ steps.map.outputs.gh_environment }}
+    steps:
+      - id: map
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV_NAME="${{ inputs.environment }}"
+          else
+            case "${GITHUB_REF_NAME}" in
+              develop) ENV_NAME=dev ;;
+              main)    ENV_NAME=prod ;;
+              *)
+                echo "Branch ${GITHUB_REF_NAME} no configurada para deploy"
+                exit 1
+                ;;
+            esac
+          fi
+          echo "env_name=${ENV_NAME}" >> "$GITHUB_OUTPUT"
+          echo "gh_environment=${ENV_NAME}" >> "$GITHUB_OUTPUT"
+
+  build-and-deploy:
+    name: Build & Deploy (${{ needs.resolve-env.outputs.env_name }})
+    needs: resolve-env
+    runs-on: ubuntu-22.04
+    environment: ${{ needs.resolve-env.outputs.gh_environment }}
+    env:
+      ENV_NAME: ${{ needs.resolve-env.outputs.env_name }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      ECR_REPO_NAME: ${{ vars.ECR_REPO_NAME }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-ecs-${{ needs.resolve-env.outputs.env_name }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: image
+        run: |
+          IMAGE_TAG="${GITHUB_SHA::8}"
+          ECR_URI="${{ steps.ecr-login.outputs.registry }}/${ECR_REPO_NAME}"
+
+          echo "uri=${ECR_URI}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "latest=${ECR_URI}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --tag "${{ steps.image.outputs.uri }}" \
+            --tag "${{ steps.image.outputs.latest }}" \
+            .
+
+      - name: Push image to ECR
+        run: |
+          docker push "${{ steps.image.outputs.uri }}"
+          docker push "${{ steps.image.outputs.latest }}"
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster "${ECS_CLUSTER}" \
+            --service "${ECS_SERVICE}" \
+            --force-new-deployment \
+            --region "${AWS_REGION}"
+
+      - name: Wait for ECS service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${ECS_CLUSTER}" \
+            --services "${ECS_SERVICE}" \
+            --region "${AWS_REGION}"
