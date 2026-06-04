@@ -87,7 +87,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --platform linux/amd64 \
+            --platform linux/arm64 \
             --tag "${{ steps.image.outputs.uri }}" \
             --tag "${{ steps.image.outputs.latest }}" \
             .
