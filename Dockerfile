@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Imagen de producción para NestJS (Walvy API). Render y otros PaaS suelen inyectar PORT y DATABASE_URL.
 
-FROM node:22-bookworm-slim AS builder
+FROM --platform=linux/amd64 node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM node:22-bookworm-slim AS runner
+FROM --platform=linux/amd64 node:22-bookworm-slim AS runner
 
 WORKDIR /app
 
