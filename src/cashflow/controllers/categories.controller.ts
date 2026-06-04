@@ -19,21 +19,28 @@ import { CategoriesService } from '../services/categories.service';
 
 /** CRUD de categorías (globales del sistema + propias del usuario) */
 @ApiTags('Categorías')
-@ApiBearerAuth('access-token')
-@UseGuards(AuthGuard('jwt'))
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly service: CategoriesService) {}
 
+  /** Endpoint público — sin JWT */
+  @Get('with-subcategories')
+  @ApiOperation({ summary: 'Listar categorías con sus subcategorías anidadas' })
+  findAllWithSubcategories() {
+    return this.service.findAllWithSubcategories(null);
+  }
+
   @Get()
-  @ApiOperation({
-    summary: 'Listar categorías (catálogo global + propias)',
-  })
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Listar categorías (catálogo global + propias)' })
   findAll(@CurrentUser() user: JwtPayload) {
     return this.service.findAll(user.sub);
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Obtener categoría por id' })
   findOne(
     @CurrentUser() user: JwtPayload,
@@ -43,6 +50,8 @@ export class CategoriesController {
   }
 
   @Post()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Crear categoría propia' })
   create(
     @CurrentUser() user: JwtPayload,
@@ -52,6 +61,8 @@ export class CategoriesController {
   }
 
   @Patch(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Actualizar categoría propia' })
   update(
     @CurrentUser() user: JwtPayload,
@@ -62,6 +73,8 @@ export class CategoriesController {
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Eliminar categoría propia' })
   remove(
     @CurrentUser() user: JwtPayload,
